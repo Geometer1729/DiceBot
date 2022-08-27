@@ -97,11 +97,13 @@ common shared
     , random
     , extra
     , recursion-schemes
+    , stm
 
   hs-source-dirs:     src
   other-modules:
     Parser
     Roller
+    RefTable
 
 executable dice-bot
   import:           shared

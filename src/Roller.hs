@@ -7,7 +7,7 @@ import System.Random(StdGen,randomR,getStdRandom)
 
 type RollM = WriterT Text (State StdGen)
 
-rollIO :: Roll -> IO (Int,Text)
+rollIO :: MonadIO m => Roll -> m (Int,Text)
 rollIO = getStdRandom . runState . runWriterT . rollDice
 
 -- | A monadic catamorphism

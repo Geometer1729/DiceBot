@@ -8,19 +8,24 @@ import Discord.Internal.Rest.ApplicationCommands
 import Discord.Internal.Rest.Interactions as Rest
 
 import Parser(parseRoll)
+import Roller (rollIO)
+import RefTable(RefTable,newRefTable, maybeUnRef, maybeMakeRef)
 
 import Data.Text as T
-import Roller (rollIO)
 
 main :: IO ()
 main = do
   tok <- strip <$> readFileText "token.auth"
+  rt <- newRefTable
   print tok
   res <- runDiscord $
     def{ discordToken = tok
        , discordOnStart = startup
-       , discordOnEvent = handler
-       , discordGatewayIntent = def {gatewayIntentMembers = True, gatewayIntentPresences =True}
+       , discordOnEvent = handler rt
+       , discordGatewayIntent =
+          def {gatewayIntentMembers = True
+              ,gatewayIntentPresences = True
+              }
        }
   print res
 
@@ -36,8 +41,8 @@ rc a = restCall a >>= \case
   Right r -> pure r
   Left err -> die $ show err
 
-handler :: Event -> DiscordHandler ()
-handler = \case
+handler :: RefTable -> Event -> DiscordHandler ()
+handler rt = \case
   Ready _ _ _ _ _ _ (PartialApplication i _) -> do
     putStrLn "ready"
     let com =
@@ -70,26 +75,29 @@ handler = \case
       }
     ,..
     }
-   ) -> rollExpr interactionId interactionToken expr
+   ) -> rollExpr rt interactionId interactionToken expr
   (InteractionCreate
     InteractionComponent
       {interactionId
       ,interactionToken
       ,componentData = ButtonData button
       }
-   )
-     | T.take 5 button == "roll:" -> do
-       rollExpr interactionId interactionToken $ T.drop 5 button
-     | T.take 5 button == "logs:" -> do
-       rc_ $ CreateInteractionResponse
-         interactionId
-         interactionToken
-         $ interactionResponseBasic $ T.drop 5 button
+    ) -> case button of
+        (stripPrefix "roll:" -> Just rest) -> do
+           expr <- maybeUnRef rt rest
+           rollExpr rt interactionId interactionToken expr
+        (stripPrefix "logs:" -> Just rest) -> do
+           logs <- maybeUnRef rt rest
+           rc_ $ CreateInteractionResponse
+             interactionId
+             interactionToken
+             $ interactionResponseBasic logs
+        _ -> die $ toString $ "unexpected button data:" <> button
   _ -> pass
 
 
-rollExpr :: InteractionId -> InteractionToken -> Text -> DiscordHandler ()
-rollExpr interactionId interactionToken expr =
+rollExpr :: RefTable -> InteractionId -> InteractionToken -> Text -> DiscordHandler ()
+rollExpr rt interactionId interactionToken expr =
      case parseRoll expr of
        Left err ->
          rc_ $ CreateInteractionResponse
@@ -97,7 +105,9 @@ rollExpr interactionId interactionToken expr =
            interactionToken
            $ interactionResponseBasic $ "Parsing: " <> expr <> "\nfailed with: " <> toText err
        Right roll -> do
-        (res,logs) <- liftIO $ rollIO roll
+        (res,logs) <- rollIO roll
+        logMsg <- maybeMakeRef rt (100 - T.length "logs:") logs
+        expr' <- maybeMakeRef rt (100 - T.length "roll:") expr
         rc_ $ CreateInteractionResponse
           interactionId
           interactionToken
@@ -106,21 +116,20 @@ rollExpr interactionId interactionToken expr =
             {interactionResponseMessageTTS = Nothing
             ,interactionResponseMessageContent = Just
               $ expr <> "= **" <> show res <> "**"
-              -- <> if T.length logs > 1000 then "" else "\n" <> logs
             ,interactionResponseMessageEmbeds = Nothing
             ,interactionResponseMessageAllowedMentions = Nothing
             ,interactionResponseMessageFlags = Nothing
             ,interactionResponseMessageComponents = Just
               [ ActionRowButtons
                 [Button
-                  { buttonCustomId = "roll:" <> expr
+                  { buttonCustomId = "roll:" <> expr'
                   , buttonDisabled= False
                   , buttonStyle= ButtonStylePrimary
                   , buttonLabel = Just "reroll"
                   , buttonEmoji = Nothing
                   }
                 ,Button
-                  { buttonCustomId = "logs:" <> logs
+                  { buttonCustomId = "logs:" <> logMsg
                   , buttonDisabled= False
                   , buttonStyle=  ButtonStylePrimary
                   , buttonLabel = Just "How?"

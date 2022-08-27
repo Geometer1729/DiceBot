@@ -1,18 +1,19 @@
 module Roller (rollIO) where
 
-import Control.Monad.Writer(WriterT,runWriterT,tell)
-import Data.Functor.Foldable(Base,Recursive,project)
-import Parser(Roll,RollF(..),RerollOpts(..))
-import System.Random(StdGen,randomR,getStdRandom)
+import Control.Monad.Writer (WriterT, runWriterT, tell)
+import Data.Functor.Foldable (Base, Recursive, project)
+import Parser (RerollOpts (..), Roll, RollF (..))
+import System.Random (StdGen, getStdRandom, randomR)
 
 type RollM = WriterT Text (State StdGen)
 
-rollIO :: MonadIO m => Roll -> m (Int,Text)
+rollIO :: MonadIO m => Roll -> m (Int, Text)
 rollIO = getStdRandom . runState . runWriterT . rollDice
 
 -- | A monadic catamorphism
 cataM :: (Recursive t, Traversable (Base t), Monad m) => (Base t a -> m a) -> (t -> m a)
 cataM phi = c where c = phi <=< (traverse c . project)
+
 -- coppied from recursion-scheems-ext I would've imported but it seems not to compile
 
 rollDice :: Roll -> RollM Int
@@ -45,7 +46,7 @@ rollSmpl n = \case
     sum . take keeping . sort <$> replicateM amt (d n)
   where
     range :: Int -> Int -> RollM Int
-    range a b = state $ randomR (a,b)
+    range a b = state $ randomR (a, b)
 
     d :: Int -> RollM Int
     d = range 1

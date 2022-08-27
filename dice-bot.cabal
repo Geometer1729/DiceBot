@@ -58,11 +58,13 @@ common shared
     LambdaCase
     MultiParamTypeClasses
     MultiWayIf
+    NamedFieldPuns
     NumericUnderscores
     OverloadedStrings
     PolyKinds
     PostfixOperators
     RankNTypes
+    RecordWildCards
     ScopedTypeVariables
     StandaloneDeriving
     StandaloneKindSignatures
@@ -71,39 +73,24 @@ common shared
     TypeFamilies
     TypeOperators
     ViewPatterns
-    RecordWildCards
-    NamedFieldPuns
 
   build-depends:
-    , aeson
-    , async
     , attoparsec
     , base
-    , bytestring
     , containers
-    , data-default
-    , directory
     , discord-haskell
-    , entropy == 0.4.1.7
-    , filepath
     , mtl
-    , optics-core
-    , profunctors
-    , relude
-    , shower
-    , text
-    , time
-    , with-utf8
     , random
-    , extra
     , recursion-schemes
+    , relude
     , stm
+    , text
 
   hs-source-dirs:     src
   other-modules:
     Parser
-    Roller
     RefTable
+    Roller
 
 executable dice-bot
   import:           shared

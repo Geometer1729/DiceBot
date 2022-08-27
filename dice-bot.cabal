@@ -72,6 +72,7 @@ common shared
     TypeOperators
     ViewPatterns
     RecordWildCards
+    NamedFieldPuns
 
   build-depends:
     , aeson

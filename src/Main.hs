@@ -9,7 +9,7 @@ import Discord.Internal.Rest.Interactions as Rest
 
 import Parser(parseRoll)
 
-import Data.Text (strip)
+import Data.Text as T
 import Roller (rollIO)
 
 main :: IO ()
@@ -70,17 +70,63 @@ handler = \case
       }
     ,..
     }
-   ) -> do
+   ) -> rollExpr interactionId interactionToken expr
+  (InteractionCreate
+    InteractionComponent
+      {interactionId
+      ,interactionToken
+      ,componentData = ButtonData button
+      }
+   )
+     | T.take 5 button == "roll:" -> do
+       rollExpr interactionId interactionToken $ T.drop 5 button
+     | T.take 5 button == "logs:" -> do
+       rc_ $ CreateInteractionResponse
+         interactionId
+         interactionToken
+         $ interactionResponseBasic $ T.drop 5 button
+  _ -> pass
+
+
+rollExpr :: InteractionId -> InteractionToken -> Text -> DiscordHandler ()
+rollExpr interactionId interactionToken expr =
      case parseRoll expr of
        Left err ->
          rc_ $ CreateInteractionResponse
            interactionId
            interactionToken
-           $ interactionResponseBasic $ "Asked to rol: " <> expr <> "\nparse failed with: "  <> toText err
+           $ interactionResponseBasic $ "Parsing: " <> expr <> "\nfailed with: " <> toText err
        Right roll -> do
         (res,logs) <- liftIO $ rollIO roll
         rc_ $ CreateInteractionResponse
           interactionId
           interactionToken
-          $ interactionResponseBasic $ "Asked to rol: " <> expr <> "\nrolled and got:" <> show res <> "\n" <> logs
-  _ -> pass
+          $ InteractionResponseChannelMessage
+          $ InteractionResponseMessage
+            {interactionResponseMessageTTS = Nothing
+            ,interactionResponseMessageContent = Just
+              $ expr <> "= **" <> show res <> "**"
+              -- <> if T.length logs > 1000 then "" else "\n" <> logs
+            ,interactionResponseMessageEmbeds = Nothing
+            ,interactionResponseMessageAllowedMentions = Nothing
+            ,interactionResponseMessageFlags = Nothing
+            ,interactionResponseMessageComponents = Just
+              [ ActionRowButtons
+                [Button
+                  { buttonCustomId = "roll:" <> expr
+                  , buttonDisabled= False
+                  , buttonStyle= ButtonStylePrimary
+                  , buttonLabel = Just "reroll"
+                  , buttonEmoji = Nothing
+                  }
+                ,Button
+                  { buttonCustomId = "logs:" <> logs
+                  , buttonDisabled= False
+                  , buttonStyle=  ButtonStylePrimary
+                  , buttonLabel = Just "How?"
+                  , buttonEmoji = Nothing
+                  }
+                ]
+              ]
+            ,interactionResponseMessageAttachments = Nothing
+            }

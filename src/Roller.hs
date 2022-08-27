@@ -2,13 +2,11 @@ module Roller (rollIO) where
 
 import Relude.Extra(secondF)
 
-import Parser(Roll,Fix(..),RollF(..),RerollOpts(..))
-import System.Random(StdGen,randomR,getStdRandom)
-import Control.Monad(liftM2)
 import Control.Monad.Writer(WriterT,runWriterT,tell)
+import Data.Functor.Foldable(Base,Recursive,project)
 import Data.List.Extra(unsnoc)
-
-type Alg f a = f a -> a
+import Parser(Roll,RollF(..),RerollOpts(..))
+import System.Random(StdGen,randomR,getStdRandom)
 
 type RollM = WriterT RollLogs (State StdGen)
 
@@ -34,23 +32,22 @@ format = unlines . map formatEnt . unRL
     formatEnt (Ent n [x]) = "d" <> show n <> "=" <> show x
     formatEnt (Ent n xs) = "d" <> show n <> "=" <> show xs
 
-cata :: Functor f => Alg f a -> Fix f -> a
-cata f = f . fmap (cata f) . outF
-
 rollIO :: Roll -> IO (Int,Text)
 rollIO = secondF format . getStdRandom . runState . runWriterT . rollDice
 
-rollDice :: Roll -> RollM Int
-rollDice = cata $ \case
-  C n -> pure n
-  D o a b -> sum <$> (replicateM ==<< a) (rollSmpl ==<< b $ o)
-  Add a b -> liftM2 (+) a b
-  Mul a b -> liftM2 (*) a b
-  Div a b -> liftM2 div a b
-  Sub a b -> liftM2 (-) a b
+-- | A monadic catamorphism
+cataM :: (Recursive t, Traversable (Base t), Monad m) => (Base t a -> m a) -> (t -> m a)
+cataM phi = c where c = phi <=< (traverse c . project)
+-- coppied from recursion-scheems-ext I would've imported but it seems not to compile
 
-(==<<) :: Monad m => (a -> b -> m c) -> m a -> b -> m c
-f ==<< m = \x -> m >>= (`f` x)
+rollDice :: Roll -> RollM Int
+rollDice = cataM $ \case
+  CF n -> pure n
+  DF o a b -> sum <$> replicateM a (rollSmpl b o)
+  AddF a b -> pure $ a + b
+  MulF a b -> pure $ a * b
+  DivF a b -> pure $ a `div` b
+  SubF a b -> pure $ a - b
 
 rollSmpl :: Int -> RerollOpts -> RollM Int
 rollSmpl n = \case

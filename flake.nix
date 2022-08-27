@@ -10,6 +10,10 @@
       url = "github:discord-haskell/discord-haskell";
       flake = false;
     };
+    recursion-schemes = {
+      url = "github:recursion-schemes/recursion-schemes";
+      flake = false;
+    };
     base64-bytestring = {
       url = "github:haskell/base64-bytestring?rev=6fbb78226a3a00174325ff9bbd98248fb3eb1130";
       flake = false;
@@ -36,9 +40,10 @@
           } // config.treefmt.formatters;
           source-overrides = {
             inherit (self.inputs)
+              recursion-schemes
+              discord-haskell
               base64-bytestring
               wuss
-              discord-haskell
               ;
           };
         };

@@ -84,6 +84,22 @@
         "type": "github"
       }
     },
+    "recursion-schemes": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1661200692,
+        "narHash": "sha256-8ECUV5BP65i4zUcnpGH0HoO9JpnKr8x68kTaIXAosNE=",
+        "owner": "recursion-schemes",
+        "repo": "recursion-schemes",
+        "rev": "0fffc75a84405a650fc8f09f5848443cddc4e7ae",
+        "type": "github"
+      },
+      "original": {
+        "owner": "recursion-schemes",
+        "repo": "recursion-schemes",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "base64-bytestring": "base64-bytestring",
@@ -91,6 +107,7 @@
         "flake-parts": "flake-parts",
         "haskell-flake": "haskell-flake",
         "nixpkgs": "nixpkgs",
+        "recursion-schemes": "recursion-schemes",
         "treefmt-flake": "treefmt-flake",
         "wuss": "wuss"
       }

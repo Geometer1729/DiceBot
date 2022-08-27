@@ -95,6 +95,7 @@ common shared
     , with-utf8
     , random
     , extra
+    , recursion-schemes
 
   hs-source-dirs:     src
   other-modules:

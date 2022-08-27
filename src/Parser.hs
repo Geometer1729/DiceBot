@@ -1,13 +1,13 @@
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Parser
-  (Roll
-  ,Fix(..)
+  (Roll(..)
   ,RollF(..)
   ,RerollOpts(..)
   ,parseRoll
   ) where
 
+import Data.Functor.Foldable.TH (makeBaseFunctor)
 import Data.Attoparsec.Text
   (Parser
   ,string
@@ -17,21 +17,14 @@ import Data.Attoparsec.Text
   ,parseOnly
   )
 
-type Roll = Fix RollF
-newtype Fix f = InF { outF :: f (Fix f) }
-
-deriving stock instance Show (f (Fix f)) => Show (Fix f)
-deriving stock instance Eq (f (Fix f)) => Eq (Fix f)
-deriving stock instance Ord (f (Fix f)) => Ord (Fix f)
-
-data RollF r
-  = D RerollOpts r r
+data Roll
+  = D RerollOpts Roll Roll
   | C Int
-  | Add r r
-  | Mul r r
-  | Sub r r
-  | Div r r
-  deriving stock (Show,Eq,Ord,Functor)
+  | Add Roll Roll
+  | Mul Roll Roll
+  | Sub Roll Roll
+  | Div Roll Roll
+  deriving stock (Show,Eq,Ord)
 
 data RerollOpts
   = Dont
@@ -40,6 +33,8 @@ data RerollOpts
   | UnderMin Int
   | OnceUnderMin Int
   deriving stock (Show,Eq,Ord)
+
+makeBaseFunctor ''Roll
 
 parseRoll :: Text -> Either String Roll
 parseRoll = parseOnly roll
@@ -53,26 +48,26 @@ parens = string "(" *> expr2 <* string ")"
 constant :: Parser Roll
 constant = choice
   [ parens
-  , InF . C <$> decimal
+  , C <$> decimal
   ]
 
 dice :: Parser Roll
 dice = choice
-  [ fmap InF $ (fmap flip . flip) D <$> (constant <|> pure (InF $ C 1)) <*> (string "d" *> dice) <*> reroll
+  [ (fmap flip . flip) D <$> (constant <|> pure (C 1)) <*> (string "d" *> dice) <*> reroll
   ,constant
   ]
 
 expr1 :: Parser Roll
 expr1 = choice
-  [ fmap InF $ Mul <$> dice <*> (string "*" *> expr1)
-  , fmap InF $ Div <$> dice <*> (string "/" *> expr1)
+  [ Mul <$> dice <*> (string "*" *> expr1)
+  , Div <$> dice <*> (string "/" *> expr1)
   , dice
   ]
 
 expr2 :: Parser Roll
 expr2 = choice
-  [ fmap InF $ Add <$> expr1 <*> (string "+" *> expr2)
-  , fmap InF $ Sub <$> expr1 <*> (string "-" *> expr2)
+  [ Add <$> expr1 <*> (string "+" *> expr2)
+  , Sub <$> expr1 <*> (string "-" *> expr2)
   , expr1
   ]
 

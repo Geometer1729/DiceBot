@@ -1,10 +1,9 @@
 cabal-version:      2.4
-name:               haskell-template
+name:               dice-bot
 version:            0.1.0.0
 license:            MIT
-copyright:          2022 Sridhar Ratnakumar
-maintainer:         srid@srid.ca
-author:             Sridhar Ratnakumar
+copyright:          2022 Brian Kuhns
+author:             Brian Kuhns
 category:           Web
 
 -- TODO: Before hackage release.
@@ -72,15 +71,19 @@ common shared
     TypeFamilies
     TypeOperators
     ViewPatterns
+    RecordWildCards
 
   build-depends:
     , aeson
     , async
-    , base          >=4.13.0.0 && <=4.18.0.0
+    , attoparsec
+    , base
     , bytestring
     , containers
     , data-default
     , directory
+    , discord-haskell
+    , entropy == 0.4.1.7
     , filepath
     , mtl
     , optics-core
@@ -90,11 +93,15 @@ common shared
     , text
     , time
     , with-utf8
+    , random
+    , extra
 
   hs-source-dirs:     src
-  other-modules:      Lib
+  other-modules:
+    Parser
+    Roller
 
-executable haskell-template
+executable dice-bot
   import:           shared
   main-is:          Main.hs
   default-language: Haskell2010

@@ -1,5 +1,38 @@
 {
   "nodes": {
+    "base64-bytestring": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1587708793,
+        "narHash": "sha256-QlyXcFK3flyhuDmkGRp+viBiC+UwlR/V2fSwKMdLNfU=",
+        "owner": "haskell",
+        "repo": "base64-bytestring",
+        "rev": "6fbb78226a3a00174325ff9bbd98248fb3eb1130",
+        "type": "github"
+      },
+      "original": {
+        "owner": "haskell",
+        "repo": "base64-bytestring",
+        "rev": "6fbb78226a3a00174325ff9bbd98248fb3eb1130",
+        "type": "github"
+      }
+    },
+    "discord-haskell": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1660943724,
+        "narHash": "sha256-Y5NcfGtldALDQiiSJGE1TCm/adVykUnZ9vW/lvx/Jc0=",
+        "owner": "discord-haskell",
+        "repo": "discord-haskell",
+        "rev": "210e46bef7138540774f24cfc4cbb0b6a20420cb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "discord-haskell",
+        "repo": "discord-haskell",
+        "type": "github"
+      }
+    },
     "flake-parts": {
       "inputs": {
         "nixpkgs": [
@@ -53,10 +86,13 @@
     },
     "root": {
       "inputs": {
+        "base64-bytestring": "base64-bytestring",
+        "discord-haskell": "discord-haskell",
         "flake-parts": "flake-parts",
         "haskell-flake": "haskell-flake",
         "nixpkgs": "nixpkgs",
-        "treefmt-flake": "treefmt-flake"
+        "treefmt-flake": "treefmt-flake",
+        "wuss": "wuss"
       }
     },
     "treefmt-flake": {
@@ -71,6 +107,23 @@
       "original": {
         "owner": "srid",
         "repo": "treefmt-flake",
+        "type": "github"
+      }
+    },
+    "wuss": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1638244199,
+        "narHash": "sha256-IPK8ILQ7RaYpnx7s36VZyvWyyvuZ+d5VZsvPbIGFCFg=",
+        "owner": "tfausak",
+        "repo": "wuss",
+        "rev": "7cab441d443b3a829cd7e04842aff25388b8f4ef",
+        "type": "github"
+      },
+      "original": {
+        "owner": "tfausak",
+        "repo": "wuss",
+        "rev": "7cab441d443b3a829cd7e04842aff25388b8f4ef",
         "type": "github"
       }
     }

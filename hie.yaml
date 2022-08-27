@@ -1,6 +1,6 @@
 cradle:
   cabal:
     - path: "src"
-      component: "exe:haskell-template"
+      component: "exe:dice-bot"
     - path: "tests"
       component: "test:tests"

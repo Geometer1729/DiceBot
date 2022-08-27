@@ -6,6 +6,18 @@
     flake-parts.inputs.nixpkgs.follows = "nixpkgs";
     haskell-flake.url = "github:srid/haskell-flake";
     treefmt-flake.url = "github:srid/treefmt-flake";
+    discord-haskell = {
+      url = "github:discord-haskell/discord-haskell";
+      flake = false;
+    };
+    base64-bytestring = {
+      url = "github:haskell/base64-bytestring?rev=6fbb78226a3a00174325ff9bbd98248fb3eb1130";
+      flake = false;
+    };
+    wuss = {
+      url = "github:tfausak/wuss?rev=7cab441d443b3a829cd7e04842aff25388b8f4ef";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, flake-parts, haskell-flake, treefmt-flake, ... }:
@@ -22,6 +34,13 @@
             inherit (pkgs)
               treefmt;
           } // config.treefmt.formatters;
+          source-overrides = {
+            inherit (self.inputs)
+              base64-bytestring
+              wuss
+              discord-haskell
+              ;
+          };
         };
         treefmt.formatters = {
           inherit (pkgs)

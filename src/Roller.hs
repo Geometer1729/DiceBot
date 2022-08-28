@@ -2,7 +2,7 @@ module Roller (rollIO) where
 
 import Control.Monad.Writer (WriterT, runWriterT, tell)
 import Data.Functor.Foldable (Base, Recursive, project)
-import Parser (RerollOpts (..),RerollBest(..),RerollUnder(..), Roll, RollF (..))
+import Parser (RerollOpts (..),RerollBest(..),RerollUnder(..), Roll, RollF (..),Dir(..))
 import System.Random (StdGen, getStdRandom, randomR)
 
 type RollM = WriterT Text (State StdGen)
@@ -20,11 +20,14 @@ rollDice :: Roll -> RollM Int
 rollDice = cataM $ \case
   CF n -> pure n
   DF o a b -> do
+    tell $ case a of
+      1 -> "d" <> show b <> show o <> "= "
+      _ -> show a <> "d" <> show b <> show o <> "= "
     rolls <- replicateM a $ rollSmpl b o
     let res = sum rolls
     tell $ case rolls of
-      [x] -> "d" <> show b <> show o <> "=" <> show x <> "\n"
-      xs -> show a <> "d" <> show b <> "=" <> show res <> " " <> show xs <> "\n"
+      [x] ->  show x <> "\n"
+      xs -> show xs <> "=" <> show res <> "\n"
     pure res
   AddF a b -> pure $ a + b
   MulF a b -> pure $ a * b
@@ -38,17 +41,25 @@ rollSmpl n RerollOpts{..} = withBest
     withBest =
       case best of
          Nothing -> withUnder
-         Just (Best a b) -> sum . take a . sortOn Down <$> replicateM b withUnder
-         Just (Worst a b) -> sum . take a . sort <$> replicateM b withUnder
+         Just (RerollBest dir a b) -> do
+           let sorter = case dir of
+                      Best -> sortOn Down
+                      Worst -> sort
+           (keep,toss) <- splitAt b . sorter <$> replicateM a withUnder
+           tell $ " ~~" <> show toss <> "~~ "
+           tell $ show keep
+           pure $ sum keep
 
     withUnder :: RollM Int
     withUnder = case under of
                   Nothing -> d n
-                  Just (Under a) -> range a n
+                  Just (Under a) -> range (a+1) n
                   Just (OnceUnder a) -> do
                     res <- d n
                     if res <= a
-                       then d n
+                       then do
+                         tell $ "~~" <> show res <> "~~ "
+                         d n
                        else pure res
 
     range :: Int -> Int -> RollM Int

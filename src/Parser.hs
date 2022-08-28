@@ -5,6 +5,7 @@ module Parser (
   RollF (..),
   RerollOpts (..),
   RerollBest(..),
+  Dir(..),
   RerollUnder(..),
   parseRoll,
   -- debug
@@ -42,18 +43,21 @@ data RerollOpts
 
 instance Show RerollOpts where
   show RerollOpts{best,under}
-    = fold (show <$> best)
-    <> fold (show <$> under)
+    = case fold (show <$> best) <> fold (show <$> under) of
+        "" -> ""
+        opts -> "r" <> opts
 
 data RerollBest
-  = Best Int Int
-  | Worst Int Int
+  = RerollBest{dir::Dir,amt :: Int,keep :: Int}
+    deriving stock (Eq, Ord)
+
+data Dir = Best | Worst
     deriving stock (Eq, Ord)
 
 instance Show RerollBest where
   show = \case
-    Best a b -> show a <> "k" <> show b
-    Worst a b -> show a <> "kw" <> show b
+    RerollBest Best a b -> show a <> "k" <> show b
+    RerollBest Worst a b -> show a <> "kw" <> show b
 
 data RerollUnder
   = Under Int
@@ -115,7 +119,11 @@ reroll =
 
 rerollBest :: Parser (Maybe RerollBest)
 rerollBest = choice
-  [ (Just <$>) $ decimal <**> (((string "kb" <|> string "k") $> Best) <|> (string "kw" $> Worst)) <*> decimal
+  [ (Just <$>) $
+      decimal <**>
+      (((string "kb" <|> string "k") $> RerollBest Best)
+      <|> (string "kw" $> RerollBest Worst))
+      <*> decimal
   , pure Nothing
   ]
 

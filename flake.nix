@@ -7,8 +7,7 @@
     haskell-flake.url = "github:srid/haskell-flake";
     treefmt-flake.url = "github:srid/treefmt-flake";
     discord-haskell = {
-      #url = "github:discord-haskell/discord-haskell";
-      url = "github:Geometer1729/discord-haskell"; # fork with bug fix pr is already open
+      url = "github:discord-haskell/discord-haskell";
       flake = false;
     };
     recursion-schemes = {

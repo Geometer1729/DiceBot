@@ -20,15 +20,15 @@
     "discord-haskell": {
       "flake": false,
       "locked": {
-        "lastModified": 1661648081,
-        "narHash": "sha256-Ab/pgruvdEjtoKchWayL3B08xX+DZIwQ8qlbni3w2T8=",
-        "owner": "Geometer1729",
+        "lastModified": 1661677706,
+        "narHash": "sha256-cqpoS7SZMjZgSBF7Og298WDbkbq1I+N6PjlulX0xpCg=",
+        "owner": "discord-haskell",
         "repo": "discord-haskell",
-        "rev": "85978790b72494409f1c021a6e19d208c609e0ca",
+        "rev": "1d41dc6e73e1d53ec93f1d87d91a16594830c44b",
         "type": "github"
       },
       "original": {
-        "owner": "Geometer1729",
+        "owner": "discord-haskell",
         "repo": "discord-haskell",
         "type": "github"
       }

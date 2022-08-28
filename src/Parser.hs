@@ -4,7 +4,14 @@ module Parser (
   Roll (..),
   RollF (..),
   RerollOpts (..),
+  RerollBest(..),
+  RerollUnder(..),
   parseRoll,
+  -- debug
+  roll,
+  reroll,
+  rerollUnder,
+  rerollBest,
 ) where
 
 import Data.Attoparsec.Text (
@@ -16,6 +23,7 @@ import Data.Attoparsec.Text (
   string,
  )
 import Data.Functor.Foldable.TH (makeBaseFunctor)
+import Text.Show qualified as Show
 
 data Roll
   = D RerollOpts Roll Roll
@@ -27,12 +35,35 @@ data Roll
   deriving stock (Show, Eq, Ord)
 
 data RerollOpts
-  = Dont
-  | BestOf Int Int
-  | WorstOf Int Int
-  | UnderMin Int
-  | OnceUnderMin Int
-  deriving stock (Show, Eq, Ord)
+  = RerollOpts
+    {best :: Maybe RerollBest
+    ,under :: Maybe RerollUnder
+    } deriving stock (Eq, Ord)
+
+instance Show RerollOpts where
+  show RerollOpts{best,under}
+    = fold (show <$> best)
+    <> fold (show <$> under)
+
+data RerollBest
+  = Best Int Int
+  | Worst Int Int
+    deriving stock (Eq, Ord)
+
+instance Show RerollBest where
+  show = \case
+    Best a b -> show a <> "k" <> show b
+    Worst a b -> show a <> "kw" <> show b
+
+data RerollUnder
+  = Under Int
+  | OnceUnder Int
+    deriving stock (Eq, Ord)
+
+instance Show RerollUnder where
+  show = \case
+    Under n -> "u" <> show n
+    OnceUnder n -> "ou" <> show n
 
 makeBaseFunctor ''Roll
 
@@ -78,9 +109,19 @@ expr2 =
 reroll :: Parser RerollOpts
 reroll =
   choice
-    [ BestOf <$> (string "r" *> decimal) <*> ((string "k" <|> string "kb") *> decimal <|> pure 1) -- reroll _ keep (best) _
-    , WorstOf <$> (string "r" *> decimal) <*> (string "kw" *> decimal <|> pure 1) -- reroll _ keep worst _
-    , UnderMin <$> (string "ru" *> decimal) -- up to
-    , OnceUnderMin <$> (string "rou" *> decimal) -- once up to
-    , pure Dont
+    [ (string "r" *>) $ RerollOpts <$> rerollBest <*> rerollUnder
+    , pure $ RerollOpts Nothing Nothing
     ]
+
+rerollBest :: Parser (Maybe RerollBest)
+rerollBest = choice
+  [ (Just <$>) $ decimal <**> (((string "kb" <|> string "k") $> Best) <|> (string "kw" $> Worst)) <*> decimal
+  , pure Nothing
+  ]
+
+rerollUnder :: Parser (Maybe RerollUnder)
+rerollUnder = choice
+  [ (Just <$>) $ ((string "ou" $> OnceUnder) <|> (string "u" $> Under)) <*> decimal
+  , pure Nothing
+  ]
+

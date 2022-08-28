@@ -2,7 +2,7 @@ module Roller (rollIO) where
 
 import Control.Monad.Writer (WriterT, runWriterT, tell)
 import Data.Functor.Foldable (Base, Recursive, project)
-import Parser (RerollOpts (..), Roll, RollF (..))
+import Parser (RerollOpts (..),RerollBest(..),RerollUnder(..), Roll, RollF (..))
 import System.Random (StdGen, getStdRandom, randomR)
 
 type RollM = WriterT Text (State StdGen)
@@ -23,7 +23,7 @@ rollDice = cataM $ \case
     rolls <- replicateM a $ rollSmpl b o
     let res = sum rolls
     tell $ case rolls of
-      [x] -> "d" <> show b <> "=" <> show x <> "\n"
+      [x] -> "d" <> show b <> show o <> "=" <> show x <> "\n"
       xs -> show a <> "d" <> show b <> "=" <> show res <> " " <> show xs <> "\n"
     pure res
   AddF a b -> pure $ a + b
@@ -32,19 +32,25 @@ rollDice = cataM $ \case
   SubF a b -> pure $ a - b
 
 rollSmpl :: Int -> RerollOpts -> RollM Int
-rollSmpl n = \case
-  Dont -> d n
-  UnderMin l -> range l n
-  OnceUnderMin l -> do
-    r1 <- d n
-    if r1 <= l
-      then d n
-      else pure r1
-  BestOf amt keeping ->
-    sum . take keeping . sortOn Down <$> replicateM amt (d n)
-  WorstOf amt keeping ->
-    sum . take keeping . sort <$> replicateM amt (d n)
+rollSmpl n RerollOpts{..} = withBest
   where
+    withBest :: RollM Int
+    withBest =
+      case best of
+         Nothing -> withUnder
+         Just (Best a b) -> sum . take a . sortOn Down <$> replicateM b withUnder
+         Just (Worst a b) -> sum . take a . sort <$> replicateM b withUnder
+
+    withUnder :: RollM Int
+    withUnder = case under of
+                  Nothing -> d n
+                  Just (Under a) -> range a n
+                  Just (OnceUnder a) -> do
+                    res <- d n
+                    if res <= a
+                       then d n
+                       else pure res
+
     range :: Int -> Int -> RollM Int
     range a b = state $ randomR (a, b)
 

@@ -1,17 +1,19 @@
 module Expect
-  (report)
+  (report
+  ,showAmt
+  )
     where
 
-import Data.Functor.Foldable (cata)
-import Dist(Dist, times, range, d,expected,chanceOf)
 
 import Parser
-import Control.Monad (liftM2)
 
--- TODO
--- this is pretty repeditive with Roller
--- I probably want a general class where
--- this code could be the same
+import Data.Text qualified as T
+
+import Control.Monad (liftM2)
+import Data.FormatN (percent, commaSF,fixed)
+import Data.Functor.Foldable (cata)
+import Dist(Dist, times, range, d,expected,chanceOf)
+import Flow((.>))
 
 report :: Roll -> Int -> Text
 report r res = let
@@ -20,15 +22,31 @@ report r res = let
   c = chanceOf  (== res) dist
   cb = chanceOf (> res) dist
   cl = chanceOf (< res) dist
-     in "expected: " <> show e
+  delta = fromIntegral res - e
+     in "expected: " <> showAmt e <> (if delta > 0 then " (+" else " (") <> showAmt delta <> ")"
       <> "\nchance: " <> showChance c
       <> case compare cb cl of
            GT -> "\nchance of result this low:" <> showChance (cl +c)
            EQ -> "\nmedian roll"
            LT -> "\nchance of a roll this high:" <> showChance (cb + c)
 
+showAmt :: Double -> Text
+showAmt = fixed  (Just 5) .> trimZeros
+
+trimZeros :: Text -> Text
+trimZeros w =
+  if not $ '.' `T.elem` w
+     then w
+     else T.dropWhileEnd (== '.') $ T.dropWhileEnd (== '0') w
+
 showChance :: Double -> Text
-showChance c = show (c*100) <> "%"
+showChance = percent commaSF (Just 3)
+
+-- TODO
+-- this is pretty repeditive with Roller
+-- I probably want a general class where
+-- this code could be the same
+
 
 toDist :: Roll -> Dist Int
 toDist = cata $ \case

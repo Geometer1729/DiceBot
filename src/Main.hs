@@ -12,7 +12,6 @@ import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
 import Roller (rollIO)
 
 import Data.Text as T
-import Dist (toDist, expected)
 import Expect (report)
 
 main :: IO ()

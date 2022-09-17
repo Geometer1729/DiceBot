@@ -93,6 +93,7 @@ common shared
     , text
     -- TODO is there a better way to specify versions for unused packages
     , entropy == 0.4.1.7
+    , formatn
     , ghc-prim
     , flow
 

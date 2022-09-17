@@ -5,9 +5,9 @@ module RefTable (
   maybeUnRef,
 ) where
 
+import Data.Hashable as H
 import Data.Map as M
 import Data.Text as T
-import Data.Hashable as H
 
 import Control.Concurrent.STM.TVar (stateTVar)
 

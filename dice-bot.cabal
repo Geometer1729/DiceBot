@@ -24,13 +24,13 @@ common shared
   ghc-options:
     -Wall -Wincomplete-record-updates -Wincomplete-uni-patterns
     -Wmissing-deriving-strategies -Wunused-foralls -Wunused-foralls
-    -fprint-explicit-foralls -fprint-explicit-kinds
-    -O2
+    -fprint-explicit-foralls -fprint-explicit-kinds -O2
     -fenable-rewrite-rules
-    -- rule debuging
-    -- -ddump-simpl-stats
-    -- -ddump-rule-firings
-    -- -ddump-rule-rewrites
+
+  -- rule debuging
+  -- -ddump-simpl-stats
+  -- -ddump-rule-firings
+  -- -ddump-rule-rewrites
 
   mixins:
     base hiding (Prelude),
@@ -85,26 +85,26 @@ common shared
     , base
     , containers
     , discord-haskell
+    , entropy            ==0.4.1.7
+    , flow
+    , formatn
+    , ghc-prim
+    , hashable
     , mtl
     , random
     , recursion-schemes
     , relude
     , stm
     , text
-    , hashable
-    -- TODO is there a better way to specify versions for unused packages
-    , entropy == 0.4.1.7
-    , formatn
-    , ghc-prim
-    , flow
 
+  -- TODO is there a better way to specify versions for unused packages
   hs-source-dirs:     src
   other-modules:
+    Dist
+    Expect
     Parser
     RefTable
     Roller
-    Expect
-    Dist
 
 executable dice-bot
   import:           shared

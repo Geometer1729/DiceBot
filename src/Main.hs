@@ -12,6 +12,8 @@ import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
 import Roller (rollIO)
 
 import Data.Text as T
+import Dist (toDist, expected)
+import Expect (report)
 
 main :: IO ()
 main = do
@@ -124,7 +126,22 @@ handler rt = \case
             interactionId
             interactionToken
             $ interactionResponseBasic logs
+      (stripPrefix "stats:" -> Just rest) -> do
+        let (res',T.tail -> expr) = breakOn "," rest
+        roll <- case parseRoll expr of
+               Left _ -> die "failed to  reparse in stats"
+               Right r -> pure r
+        res <- case readMaybe $ toString res' of
+                 Nothing -> die "faile to read res in stats"
+                 Just res -> pure res
+        rc_ $
+          CreateInteractionResponse
+            interactionId
+            interactionToken
+            $ interactionResponseBasic
+            $ report roll res
       _ -> die $ toString $ "unexpected button data:" <> button
+
   e -> when False $ print e
 
 rollExpr :: RefTable -> InteractionId -> InteractionToken -> Maybe Int -> Text -> DiscordHandler ()
@@ -166,7 +183,7 @@ rollExpr rt interactionId interactionToken times expr =
                             { buttonCustomId = rollPrefix <> exprRef
                             , buttonDisabled = False
                             , buttonStyle = ButtonStylePrimary
-                            , buttonLabel = Just "reroll"
+                            , buttonLabel = Just "Reroll"
                             , buttonEmoji = Nothing
                             }
                         , Button
@@ -174,6 +191,13 @@ rollExpr rt interactionId interactionToken times expr =
                             , buttonDisabled = False
                             , buttonStyle = ButtonStylePrimary
                             , buttonLabel = Just "How?"
+                            , buttonEmoji = Nothing
+                            }
+                        , Button
+                            { buttonCustomId = "stats:" <> res <> "," <> exprRef
+                            , buttonDisabled = False
+                            , buttonStyle = ButtonStylePrimary
+                            , buttonLabel = Just "Stats"
                             , buttonEmoji = Nothing
                             }
                         ]

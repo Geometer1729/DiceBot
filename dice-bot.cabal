@@ -25,6 +25,12 @@ common shared
     -Wall -Wincomplete-record-updates -Wincomplete-uni-patterns
     -Wmissing-deriving-strategies -Wunused-foralls -Wunused-foralls
     -fprint-explicit-foralls -fprint-explicit-kinds
+    -O2
+    -fenable-rewrite-rules
+    -- rule debuging
+    -- -ddump-simpl-stats
+    -- -ddump-rule-firings
+    -- -ddump-rule-rewrites
 
   mixins:
     base hiding (Prelude),
@@ -87,12 +93,16 @@ common shared
     , text
     -- TODO is there a better way to specify versions for unused packages
     , entropy == 0.4.1.7
+    , ghc-prim
+    , flow
 
   hs-source-dirs:     src
   other-modules:
     Parser
     RefTable
     Roller
+    Expect
+    Dist
 
 executable dice-bot
   import:           shared

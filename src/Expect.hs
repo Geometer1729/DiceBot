@@ -20,15 +20,18 @@ report r res = let
   !dist = toDist r
   e = expected dist
   c = chanceOf  (== res) dist
-  cb = chanceOf (> res) dist
-  cl = chanceOf (< res) dist
+  cb = chanceOf (>= res) dist
+  cl = chanceOf (<= res) dist
   delta = fromIntegral res - e
-     in "expected: " <> showAmt e <> (if delta > 0 then " (+" else " (") <> showAmt delta <> ")"
-      <> "\nchance: " <> showChance c
-      <> case compare cb cl of
-           GT -> "\nchance of result this low:" <> showChance (cl +c)
-           EQ -> "\nmedian roll"
-           LT -> "\nchance of a roll this high:" <> showChance (cb + c)
+     in "expected: " <> showAmt e
+      <> "\ngot: " <> show res <> (if delta >= 0 then " (+" else " (") <> showAmt delta <> ")"
+      <> "\nchance of rolling that: " <> showChance c
+      <> if cl > 0.5 &&  cb > 0.5
+          then "\nmedian roll"
+          else case compare cb cl of
+            GT -> "\nchance of getting a roll this low: " <> showChance cl
+            LT -> "\nchance of getting a roll this high: " <> showChance cb
+            EQ -> "\nmedian roll" -- should be unreachable but median would be correct here
 
 showAmt :: Double -> Text
 showAmt = fixed  (Just 5) .> trimZeros

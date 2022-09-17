@@ -136,6 +136,12 @@ handler rt = \case
                 interactionToken
                 $ interactionResponseBasic
                 $ report roll res
+          "ref:lost" -> rc_ $
+              CreateInteractionResponse
+                interactionId
+                interactionToken
+                $ interactionResponseBasic
+                "sorry that content was lost on a bot restart"
           _ -> die $ toString $ "unexpected button data:" <> button
 
   e -> when False $ print e

@@ -7,23 +7,24 @@ module RefTable (
 
 import Data.Map as M
 import Data.Text as T
+import Data.Hashable as H
 
 import Control.Concurrent.STM.TVar (stateTVar)
 
-type RefTable = TVar (Int, Map Int Text)
+type RefTable = TVar (Map Int Text)
 
 newRefTable :: MonadIO m => m RefTable
-newRefTable = newTVarIO (0, mempty)
+newRefTable = newTVarIO mempty
 
 addLM :: MonadIO m => RefTable -> Text -> m Int
 addLM lm t =
   atomically $
     stateTVar lm $
-      \(n, m) -> (n, (n + 1, M.insert n t m))
+      \m -> let h = H.hash t in (h, M.insert h t m)
 
 lookupLM :: MonadIO m => RefTable -> Int -> m (Maybe Text)
 lookupLM lm n = do
-  (_, m) <- readTVarIO lm
+  m <- readTVarIO lm
   pure $ M.lookup n m
 
 maybeMakeRef :: MonadIO m => RefTable -> Text -> m Text
@@ -41,6 +42,6 @@ maybeUnRef lm = \case
       Nothing -> die "failed to read a logref"
       Just ref ->
         lookupLM lm ref >>= \case
-          Nothing -> die "failed to lookup ref"
+          Nothing -> pure "ref:lost"
           Just txt' -> pure txt'
   txt -> pure txt

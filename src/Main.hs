@@ -107,39 +107,36 @@ handler rt = \case
         , interactionToken
         , componentData = ButtonData button
         }
-    ) -> case button of
-      (stripPrefix "roll:" -> Just rest) -> do
-        expr <- maybeUnRef rt rest
-        rollExpr rt interactionId interactionToken Nothing expr
-      (stripPrefix "rollt:" -> Just rest) -> do
-        let (times',T.tail -> exprRef) = breakOn ":" rest
-        case readMaybe $ toString times' of
-          Just times -> do
-            expr <- maybeUnRef rt exprRef
-            rollExpr rt interactionId interactionToken (Just times) expr
-          Nothing -> die "failed to parse times in rollt"
-      (stripPrefix "logs:" -> Just rest) -> do
-        logs <- maybeUnRef rt rest
-        rc_ $
-          CreateInteractionResponse
-            interactionId
-            interactionToken
-            $ interactionResponseBasic logs
-      (stripPrefix "stats:" -> Just rest) -> do
-        let (res',T.tail -> expr) = breakOn "," rest
-        roll <- case parseRoll expr of
-               Left _ -> die "failed to  reparse in stats"
-               Right r -> pure r
-        res <- case readMaybe $ toString res' of
-                 Nothing -> die "faile to read res in stats"
-                 Just res -> pure res
-        rc_ $
-          CreateInteractionResponse
-            interactionId
-            interactionToken
-            $ interactionResponseBasic
-            $ report roll res
-      _ -> die $ toString $ "unexpected button data:" <> button
+    ) -> maybeUnRef rt button >>= \case
+          (stripPrefix "roll:" -> Just expr) -> do
+            rollExpr rt interactionId interactionToken Nothing expr
+          (stripPrefix "rollt:" -> Just rest) -> do
+            let (times',T.tail -> expr) = breakOn ":" rest
+            case readMaybe $ toString times' of
+              Just times -> do
+                rollExpr rt interactionId interactionToken (Just times) expr
+              Nothing -> die "failed to parse times in rollt"
+          (stripPrefix "logs:" -> Just logs) -> do
+            rc_ $
+              CreateInteractionResponse
+                interactionId
+                interactionToken
+                $ interactionResponseBasic logs
+          (stripPrefix "stats:" -> Just rest) -> do
+            let (res',T.tail -> expr) = breakOn "," rest
+            roll <- case parseRoll expr of
+                   Left _ -> die "failed to  reparse in stats"
+                   Right r -> pure r
+            res <- case readMaybe $ toString res' of
+                     Nothing -> die "faile to read res in stats"
+                     Just res -> pure res
+            rc_ $
+              CreateInteractionResponse
+                interactionId
+                interactionToken
+                $ interactionResponseBasic
+                $ report roll res
+          _ -> die $ toString $ "unexpected button data:" <> button
 
   e -> when False $ print e
 
@@ -161,8 +158,9 @@ rollExpr rt interactionId interactionToken times expr =
             case times of
               Nothing -> "roll:"
               Just t -> "rollt:" <> show t <> ":"
-      logMsg <- maybeMakeRef rt (100 - T.length "logs:") logs
-      exprRef <- maybeMakeRef rt (100 - T.length rollPrefix) expr
+      logMsg <- maybeMakeRef rt ("logs:" <> (if logs == "" then "It was a constant." else logs))
+      rollMsg <- maybeMakeRef rt (rollPrefix <> expr)
+      statsMsg <- maybeMakeRef rt ("stats:" <> res <> "," <> expr)
       rc_ $
         CreateInteractionResponse
           interactionId
@@ -179,21 +177,21 @@ rollExpr rt interactionId interactionToken times expr =
                   Just
                     [ ActionRowButtons
                         [ Button
-                            { buttonCustomId = rollPrefix <> exprRef
+                            { buttonCustomId = rollMsg
                             , buttonDisabled = False
                             , buttonStyle = ButtonStylePrimary
                             , buttonLabel = Just "Reroll"
                             , buttonEmoji = Nothing
                             }
                         , Button
-                            { buttonCustomId = "logs:" <> logMsg
+                            { buttonCustomId = logMsg
                             , buttonDisabled = False
                             , buttonStyle = ButtonStylePrimary
                             , buttonLabel = Just "How?"
                             , buttonEmoji = Nothing
                             }
                         , Button
-                            { buttonCustomId = "stats:" <> res <> "," <> exprRef
+                            { buttonCustomId = statsMsg
                             , buttonDisabled = False
                             , buttonStyle = ButtonStylePrimary
                             , buttonLabel = Just "Stats"

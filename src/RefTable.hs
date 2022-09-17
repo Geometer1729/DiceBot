@@ -26,13 +26,13 @@ lookupLM lm n = do
   (_, m) <- readTVarIO lm
   pure $ M.lookup n m
 
-maybeMakeRef :: MonadIO m => RefTable -> Int -> Text -> m Text
-maybeMakeRef lm space txt
-  | T.length txt <= space = pure txt
+maybeMakeRef :: MonadIO m => RefTable -> Text -> m Text
+maybeMakeRef lm txt
+  | T.length txt <= 100 = pure txt
   | T.length txt <= 2000 = do
     ref <- addLM lm txt
     pure $ "ref:" <> show ref
-  | otherwise = pure "content was over 2000 charachters"
+  | otherwise = pure "sorry content was over 2000 charachters"
 
 maybeUnRef :: MonadIO m => RefTable -> Text -> m Text
 maybeUnRef lm = \case

@@ -69,6 +69,15 @@ coms =
       , createDefaultMemberPermissions = Nothing
       , createDMPermission = Nothing
       }
+  , CreateApplicationCommandChatInput
+      { createName = "help"
+      , createLocalizedName = Nothing
+      , createDescription = "send help text"
+      , createLocalizedDescription = Nothing
+      , createOptions = Nothing
+      , createDefaultMemberPermissions = Nothing
+      , createDMPermission = Nothing
+      }
   ]
 
 handler :: RefTable -> Event -> DiscordHandler ()
@@ -79,12 +88,28 @@ handler rt = \case
     let removedComs = Prelude.filter (\c -> applicationCommandName c `notElem` (createName <$> coms)) oldComs
     forM_ removedComs $ rc_ . DeleteGlobalApplicationCommand i . applicationCommandId
     forM_ coms $ rc_ . CreateGlobalApplicationCommand i
-    putStrLn "command registered"
+    putStrLn "commands registered"
   ( InteractionCreate
       InteractionApplicationCommand
         { applicationCommandData =
           ApplicationCommandDataChatInput
-            { optionsData = Just (OptionsDataValues [OptionDataValueString _ (Right expr)])
+            { applicationCommandDataName = "help"
+            }
+        , ..
+        }
+    ) -> rc_ $ CreateInteractionResponse
+          interactionId
+          interactionToken
+          $ interactionResponseBasic
+          $ "/help prints this\n"
+          <> "/r rolls an expression\n"
+          <> helpText
+  ( InteractionCreate
+      InteractionApplicationCommand
+        { applicationCommandData =
+          ApplicationCommandDataChatInput
+            { applicationCommandDataName = "r"
+            , optionsData = Just (OptionsDataValues [OptionDataValueString _ (Right expr)])
             }
         , ..
         }
@@ -93,7 +118,8 @@ handler rt = \case
       InteractionApplicationCommand
         { applicationCommandData =
           ApplicationCommandDataChatInput
-            { optionsData = Just (OptionsDataValues [OptionDataValueString _ (Right expr), OptionDataValueInteger _ times'])
+            { applicationCommandDataName = "r"
+            , optionsData = Just (OptionsDataValues [OptionDataValueString _ (Right expr), OptionDataValueInteger _ times'])
             }
         , ..
         }
@@ -148,6 +174,24 @@ handler rt = \case
         _ -> die $ toString $ "unexpected button data:" <> button
   e -> when False $ print e
 
+helpText :: Text
+helpText
+  = "expressions can be:\n"
+  <> "constants like 1,3 or 42\n"
+  <> "math like 1+1 or 2\\*3\n"
+  <> "dice like d20,d12 or d6\n"
+  <> "multiple dice like 5d6 or 2d8\n"
+  <> "dice can also be mixed with math like 2*(3d12+d6+6)\n"
+  <> "dice can also have rerolls\n"
+  <> "like d20r2k1 to roll a d20 twice and keep the best 1\n"
+  <> "or d6r5kw1 to roll a d20 twice and keep the worst 1\n"
+  <> "or d6ru3 to roll a d6 but reroll if it's under 3\n"
+  <> "or d6rou3 to roll a d6 and reroll if it's under 3 but only the first time\n"
+  <> "the numbers of dice can also be expresions\n"
+  <> "like (4+2)d6\n"
+  <> "or (d3)d(d3)\n"
+
+
 rollExpr :: RefTable -> InteractionId -> InteractionToken -> Maybe Int -> Text -> DiscordHandler ()
 rollExpr rt interactionId interactionToken times expr =
   case parseRoll expr of
@@ -157,7 +201,7 @@ rollExpr rt interactionId interactionToken times expr =
           interactionId
           interactionToken
           $ interactionResponseBasic $
-            "Parsing: " <> expr <> "\nfailed with: " <> toText err
+            "Failed to parse: " <> expr <> "\n\n" <> helpText
     Right roll -> do
       (res, logs) <- case times of
         Nothing -> first (show @Text) <$> rollIO roll

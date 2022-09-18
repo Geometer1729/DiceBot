@@ -9,6 +9,8 @@ module Dist
   ,fromMap
   ,expected
   ,chanceOf
+  ,maybeIn
+  ,maybeOut
   -- | unsafe
   ,unsafeSize
   ,unsafeToList
@@ -60,13 +62,13 @@ instance Num a => Num (Dist a) where
   {-# INLINE signum #-}
   signum = fmap signum
 
-d :: Int -> Dist Int
+d :: Int -> Maybe (Dist Int)
 d = range 1
 
-range :: Int -> Int -> Dist Int
+range :: Int -> Int -> Maybe (Dist Int)
 range a b =
   let p = 1/fromIntegral (b-a+1)
-   in Dist [(i,p) | i <- [a..b]]
+   in guard (a<b) $> Dist [(i,p) | i <- [a..b]]
 
 toDist :: Foldable f => f (a,Double) -> Dist a
 toDist = toList .> Dist .> msimple
@@ -94,6 +96,13 @@ expected = toMap .> Map.toList .> map (\(n,p) -> fromIntegral n * p) .> sum
 
 chanceOf :: Ord a => (a -> Bool) -> Dist a -> Double
 chanceOf predicate = toMap .> Map.filterWithKey (flip $ const predicate) .> sum
+
+maybeIn :: Maybe (Dist a) -> Dist (Maybe a)
+maybeIn Nothing = pure Nothing
+maybeIn (Just di) = Just <$> di
+
+maybeOut :: Ord a => Dist (Maybe a) -> Maybe (Dist a)
+maybeOut = simple .> unDist .> traverse (\(a,b) -> a <&> (,b)) .> fmap Dist
 
 -- unsafe
 -- these functions are unsafe because

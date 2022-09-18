@@ -11,27 +11,30 @@ import Data.Text qualified as T
 
 import Control.Monad (liftM2)
 import Data.FormatN (percent, commaSF,fixed)
-import Data.Functor.Foldable (cata)
-import Dist(Dist, times, range, d,expected,chanceOf)
+import Dist(Dist, times, range, d,expected,chanceOf, maybeIn, maybeOut)
 import Flow((.>))
+import Roller (cataM)
 
 report :: Roll -> Int -> Text
-report r res = let
-  !dist = toDist r
-  e = expected dist
-  c = chanceOf  (== res) dist
-  cb = chanceOf (>= res) dist
-  cl = chanceOf (<= res) dist
-  delta = fromIntegral res - e
-     in "expected: " <> showAmt e
-      <> "\ngot: " <> show res <> (if delta >= 0 then " (+" else " (") <> showAmt delta <> ")"
-      <> "\nchance of rolling that: " <> showChance c
-      <> if cl > 0.5 &&  cb > 0.5
-          then "\nmedian roll"
-          else case compare cb cl of
-            GT -> "\nchance of getting a roll this low: " <> showChance cl
-            LT -> "\nchance of getting a roll this high: " <> showChance cb
-            EQ -> "\nmedian roll" -- should be unreachable but median would be correct here
+report r res =
+  case toDist r of
+    Nothing -> "stats unavailable because the expression had some chance of invalid dice"
+    Just !dist ->
+      let
+        e = expected dist
+        c = chanceOf  (== res) dist
+        cb = chanceOf (>= res) dist
+        cl = chanceOf (<= res) dist
+        delta = fromIntegral res - e
+           in "expected: " <> showAmt e
+            <> "\ngot: " <> show res <> (if delta >= 0 then " (+" else " (") <> showAmt delta <> ")"
+            <> "\nchance of rolling that: " <> showChance c
+            <> if cl > 0.5 &&  cb > 0.5
+                then "\nmedian roll"
+                else case compare cb cl of
+                  GT -> "\nchance of getting a roll this low: " <> showChance cl
+                  LT -> "\nchance of getting a roll this high: " <> showChance cb
+                  EQ -> "\nmedian roll" -- should be unreachable but median would be correct here
 
 showAmt :: Double -> Text
 showAmt = fixed  (Just 5) .> trimZeros
@@ -51,41 +54,46 @@ showChance = percent commaSF (Just 3)
 -- this code could be the same
 
 
-toDist :: Roll -> Dist Int
-toDist = cata $ \case
-  CF n -> pure n
-  AddF a b -> a + b
-  SubF a b -> a - b
-  MulF a b -> a * b
-  DivF a b -> liftM2 div a b -- TODO should this be Rational
-  DF opts a' b' -> do
+toDist :: Roll -> Maybe (Dist Int)
+toDist = cataM $ \case
+  CF n -> Just $ pure n
+  AddF a b -> pure $ a + b
+  SubF a b -> pure $ a - b
+  MulF a b -> pure $ a * b
+  DivF a b -> pure $ liftM2 div a b -- TODO should this be Rational
+  DF opts a' b' -> maybeOut $ do
     a <- a'
     b <- b'
-    a `times` rollSmpl b opts
+    maybeIn $
+      (a `times`) <$> rollSmpl b opts
 
-rollSmpl :: Int -> RerollOpts -> Dist Int
+rollSmpl :: Int -> RerollOpts -> Maybe (Dist Int)
 rollSmpl n RerollOpts{..} = withBest
   where
-    withBest :: Dist Int
+    withBest :: Maybe (Dist Int)
     withBest =
       case best of
         Nothing -> withUnder
-        Just (RerollBest dir a b) -> do
-           let sorter = case dir of
-                      Best -> sortOn Down
-                      Worst -> sort
-           (keep,_toss) <- splitAt b . sorter <$> replicateM a withUnder
-           pure $ sum keep
+        Just (RerollBest dir a b) ->
+            withUnder <&> \valid -> do
+                 let sorter = case dir of
+                            Best -> sortOn Down
+                            Worst -> sort
+                 (keep,_toss) <- splitAt b . sorter <$> replicateM a valid
+                 pure $ sum keep
 
-    withUnder :: Dist Int
+    withUnder :: Maybe (Dist Int)
     withUnder = case under of
                   Nothing -> d n
                   Just (Under a) -> range (a+1) n
                   Just (OnceUnder a) -> do
-                    res <- d n
-                    if res <= a
-                       then do
-                         d n
-                       else pure res
+                    case d n of
+                      Nothing -> Nothing
+                      Just dn -> maybeOut $ do
+                        res <- dn
+                        if res <= a
+                           then do
+                             maybeIn $ d n
+                           else pure $ Just res
 
 

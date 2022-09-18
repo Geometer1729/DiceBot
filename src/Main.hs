@@ -11,12 +11,14 @@ import Parser (parseRoll)
 import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
 import Roller (rollIO)
 
-import Data.Text as T
+import Data.Text qualified as T
 import Expect (report)
+import Flow((.>))
+import Control.Arrow (ArrowChoice(left, right))
 
 main :: IO ()
 main = do
-  tok <- strip <$> readFileText "token.auth"
+  tok <- T.strip <$> readFileText "token.auth"
   rt <- newRefTable
   print
     =<< runDiscord
@@ -136,27 +138,27 @@ handler rt = \case
         }
     ) ->
       maybeUnRef rt button >>= \case
-        (stripPrefix "roll:" -> Just expr) -> do
+        (T.stripPrefix "roll:" -> Just expr) -> do
           rollExpr rt interactionId interactionToken Nothing expr
-        (stripPrefix "rollt:" -> Just rest) -> do
-          let (times', T.tail -> expr) = breakOn ":" rest
+        (T.stripPrefix "rollt:" -> Just rest) -> do
+          let (times', T.tail -> expr) = T.breakOn ":" rest
           case readMaybe $ toString times' of
             Just times -> do
               rollExpr rt interactionId interactionToken (Just times) expr
             Nothing -> die "failed to parse times in rollt"
-        (stripPrefix "logs:" -> Just logs) -> do
+        (T.stripPrefix "logs:" -> Just logs) -> do
           rc_ $
             CreateInteractionResponse
               interactionId
               interactionToken
               $ interactionResponseBasic logs
-        (stripPrefix "stats:" -> Just rest) -> do
-          let (res', T.tail -> expr) = breakOn "," rest
+        (T.stripPrefix "stats:" -> Just rest) -> do
+          let (res', T.tail -> expr) = T.breakOn "," rest
           roll <- case parseRoll expr of
             Left _ -> die "failed to  reparse in stats"
             Right r -> pure r
           res <- case readMaybe $ toString res' of
-            Nothing -> die "faile to read res in stats"
+            Nothing -> die "failed to read res in stats"
             Just res -> pure res
           rc_ $
             CreateInteractionResponse
@@ -164,13 +166,13 @@ handler rt = \case
               interactionToken
               $ interactionResponseBasic $
                 report roll res
-        "ref:lost" ->
+        (T.stripPrefix "err:" -> Just msg) ->
           rc_ $
             CreateInteractionResponse
               interactionId
               interactionToken
               $ interactionResponseBasic
-                "sorry that content was lost on a bot restart"
+              msg
         _ -> die $ toString $ "unexpected button data:" <> button
   e -> when False $ print e
 
@@ -185,8 +187,8 @@ helpText
   <> "dice can also have rerolls\n"
   <> "like d20r2k1 to roll a d20 twice and keep the best 1\n"
   <> "or d6r5kw1 to roll a d20 twice and keep the worst 1\n"
-  <> "or d6ru3 to roll a d6 but reroll if it's under 3\n"
-  <> "or d6rou3 to roll a d6 and reroll if it's under 3 but only the first time\n"
+  <> "or d6ru3 to roll a d6 but reroll low rolls up to 3\n"
+  <> "or d6rou3 to roll a d6 and reroll low rolls up to 3 but only once\n"
   <> "the numbers of dice can also be expresions\n"
   <> "like (4+2)d6\n"
   <> "or (d3)d(d3)\n"
@@ -195,7 +197,7 @@ helpText
 rollExpr :: RefTable -> InteractionId -> InteractionToken -> Maybe Int -> Text -> DiscordHandler ()
 rollExpr rt interactionId interactionToken times expr =
   case parseRoll expr of
-    Left err ->
+    Left _ ->
       rc_ $
         CreateInteractionResponse
           interactionId
@@ -203,56 +205,63 @@ rollExpr rt interactionId interactionToken times expr =
           $ interactionResponseBasic $
             "Failed to parse: " <> expr <> "\n\n" <> helpText
     Right roll -> do
-      (res, logs) <- case times of
-        Nothing -> first (show @Text) <$> rollIO roll
-        Just t -> first show . mconcat . Prelude.map (first (pure @[])) <$> replicateM t (rollIO roll)
-      let rollPrefix =
-            case times of
-              Nothing -> "roll:"
-              Just t -> "rollt:" <> show t <> ":"
-      logMsg <- maybeMakeRef rt ("logs:" <> (if logs == "" then "It was a constant." else logs))
-      rollMsg <- maybeMakeRef rt (rollPrefix <> expr)
-      statsMsg <- maybeMakeRef rt ("stats:" <> res <> "," <> expr)
-      rc_ $
-        CreateInteractionResponse
+      (res' :: Either Text (Text,Text)) <- case times of
+        Nothing -> rollIO roll <&> right (first (show @Text))
+        Just t -> replicateM t (rollIO roll) <&> (sequence .> right (unzip .> second T.concat .> first (show @Text)))
+      case res' of
+        Left err -> rc_
+          $ CreateInteractionResponse
           interactionId
           interactionToken
-          $ InteractionResponseChannelMessage $
-            InteractionResponseMessage
-              { interactionResponseMessageTTS = Nothing
-              , interactionResponseMessageContent =
-                  Just $ expr <> "= **" <> res <> "**"
-              , interactionResponseMessageEmbeds = Nothing
-              , interactionResponseMessageAllowedMentions = Nothing
-              , interactionResponseMessageFlags = Nothing
-              , interactionResponseMessageComponents =
-                  Just
-                    [ ActionRowButtons
-                        [ Button
-                            { buttonCustomId = rollMsg
-                            , buttonDisabled = False
-                            , buttonStyle = ButtonStylePrimary
-                            , buttonLabel = Just "Reroll"
-                            , buttonEmoji = Nothing
-                            }
-                        , Button
-                            { buttonCustomId = logMsg
-                            , buttonDisabled = False
-                            , buttonStyle = ButtonStylePrimary
-                            , buttonLabel = Just "How?"
-                            , buttonEmoji = Nothing
-                            }
-                        , Button
-                            { buttonCustomId = statsMsg
-                            , buttonDisabled = False
-                            , buttonStyle = ButtonStylePrimary
-                            , buttonLabel = Just "Stats"
-                            , buttonEmoji = Nothing
-                            }
+          $ interactionResponseBasic err
+        Right (res :: Text,logs) -> do
+          let rollPrefix =
+                case times of
+                  Nothing -> "roll:"
+                  Just t -> "rollt:" <> show t <> ":"
+          logMsg <- maybeMakeRef rt ("logs:" <> (if logs == "" then "It was a constant." else logs))
+          rollMsg <- maybeMakeRef rt (rollPrefix <> expr)
+          statsMsg <- maybeMakeRef rt ("stats:" <> res <> "," <> expr)
+          rc_ $
+            CreateInteractionResponse
+              interactionId
+              interactionToken
+              $ InteractionResponseChannelMessage $
+                InteractionResponseMessage
+                  { interactionResponseMessageTTS = Nothing
+                  , interactionResponseMessageContent =
+                      Just $ expr <> "= **" <> res <> "**"
+                  , interactionResponseMessageEmbeds = Nothing
+                  , interactionResponseMessageAllowedMentions = Nothing
+                  , interactionResponseMessageFlags = Nothing
+                  , interactionResponseMessageComponents =
+                      Just
+                        [ ActionRowButtons
+                            [ Button
+                                { buttonCustomId = rollMsg
+                                , buttonDisabled = False
+                                , buttonStyle = ButtonStylePrimary
+                                , buttonLabel = Just "Reroll"
+                                , buttonEmoji = Nothing
+                                }
+                            , Button
+                                { buttonCustomId = logMsg
+                                , buttonDisabled = False
+                                , buttonStyle = ButtonStylePrimary
+                                , buttonLabel = Just "How?"
+                                , buttonEmoji = Nothing
+                                }
+                            , Button
+                                { buttonCustomId = statsMsg
+                                , buttonDisabled = False
+                                , buttonStyle = ButtonStylePrimary
+                                , buttonLabel = Just "Stats"
+                                , buttonEmoji = Nothing
+                                }
+                            ]
                         ]
-                    ]
-              , interactionResponseMessageAttachments = Nothing
-              }
+                  , interactionResponseMessageAttachments = Nothing
+                  }
 
 rc_ :: (Request (r a), FromJSON a) => r a -> DiscordHandler ()
 rc_ = void . rc

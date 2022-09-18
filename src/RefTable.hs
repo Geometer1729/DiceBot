@@ -33,7 +33,7 @@ maybeMakeRef lm txt
   | T.length txt <= 2000 = do
     ref <- addLM lm txt
     pure $ "ref:" <> show ref
-  | otherwise = pure "sorry content was over 2000 charachters"
+  | otherwise = pure "err:sorry content was over 2000 charachters"
 
 maybeUnRef :: MonadIO m => RefTable -> Text -> m Text
 maybeUnRef lm = \case
@@ -42,6 +42,6 @@ maybeUnRef lm = \case
       Nothing -> die "failed to read a logref"
       Just ref ->
         lookupLM lm ref >>= \case
-          Nothing -> pure "ref:lost"
+          Nothing -> pure "err:sorry that content was lost on a bot restart"
           Just txt' -> pure txt'
   txt -> pure txt

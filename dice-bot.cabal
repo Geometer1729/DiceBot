@@ -96,6 +96,7 @@ common shared
     , relude
     , stm
     , text
+    , transformers
 
   -- TODO is there a better way to specify versions for unused packages
   hs-source-dirs:     src

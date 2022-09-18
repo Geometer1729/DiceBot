@@ -1,14 +1,16 @@
-module Roller (rollIO) where
+module Roller (rollIO,cataM) where
 
 import Control.Monad.Writer (WriterT, runWriterT, tell)
 import Data.Functor.Foldable (Base, Recursive, project)
 import Parser (Dir (..), RerollBest (..), RerollOpts (..), RerollUnder (..), Roll, RollF (..))
 import System.Random (StdGen, getStdRandom, randomR)
+import Control.Monad.Trans.Except(throwE)
+import Flow ((.>))
 
-type RollM = WriterT Text (State StdGen)
+type RollM = ExceptT Text (WriterT Text (State StdGen))
 
-rollIO :: MonadIO m => Roll -> m (Int, Text)
-rollIO = getStdRandom . runState . runWriterT . rollDice
+rollIO :: MonadIO m => Roll -> m (Either Text (Int, Text))
+rollIO = rollDice .> runExceptT .> runWriterT .> runState .> getStdRandom .> fmap (\(a,b) -> a <&> (,b))
 
 -- | A monadic catamorphism
 cataM :: (Recursive t, Traversable (Base t), Monad m) => (Base t a -> m a) -> (t -> m a)
@@ -63,7 +65,9 @@ rollSmpl n RerollOpts {..} = withBest
           else pure res
 
     range :: Int -> Int -> RollM Int
-    range a b = state $ randomR (a, b)
+    range a b
+      | b < a = throwE "dice with 0 or fewer sides encountered"
+      | otherwise = state $ randomR (a, b)
 
     d :: Int -> RollM Int
     d = range 1

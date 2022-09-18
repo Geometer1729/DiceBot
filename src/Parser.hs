@@ -21,7 +21,9 @@ import Data.Attoparsec.Text (
   decimal,
   endOfInput,
   parseOnly,
-  string, skipSpace,
+  string,
+  skipSpace,
+  signed,
  )
 import Data.Functor.Foldable.TH (makeBaseFunctor)
 import Text.Show qualified as Show
@@ -83,7 +85,7 @@ constant :: Parser Roll
 constant =
   choice
     [ parens
-    , C <$> decimal
+    , C <$> signed  decimal
     ]
 
 dice :: Parser Roll
@@ -120,7 +122,7 @@ rerollBest :: Parser (Maybe RerollBest)
 rerollBest =
   choice
     [ (Just <$>) $
-        decimal
+        signed decimal
           <**> (skipSpace >> RerollBest
                 <$>((string "keep best" $> Best)
                 <|> (string "keep worst" $> Worst)
@@ -129,7 +131,7 @@ rerollBest =
                 <|> (string "kw" $> Worst)
                 <|> (string "k" $> Best)
                ) <* skipSpace)
-          <*> decimal
+          <*> signed decimal
     , pure Nothing
     ]
 
@@ -139,6 +141,6 @@ rerollUnder =
     [ (Just <$>) $
         ((skipSpace *> (string "once up to" <|> string "ou") *> skipSpace $> OnceUnder)
         <|> (skipSpace *> (string "up to" <|> string "u") *> skipSpace $> Under)
-        ) <*> decimal
+        ) <*> signed decimal
     , pure Nothing
     ]

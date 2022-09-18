@@ -65,7 +65,7 @@ toDist = cataM $ \case
     a <- a'
     b <- b'
     maybeIn $
-      (a `times`) <$> rollSmpl b opts
+      fmap (signum a *) . (abs a `times`) <$> rollSmpl b opts
 
 rollSmpl :: Int -> RerollOpts -> Maybe (Dist Int)
 rollSmpl n RerollOpts{..} = withBest

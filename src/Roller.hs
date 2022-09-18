@@ -25,8 +25,8 @@ rollDice = cataM $ \case
     tell $ case a of
       1 -> "d" <> show b <> show o <> "= "
       _ -> show a <> "d" <> show b <> show o <> "= "
-    rolls <- replicateM a $ rollSmpl b o
-    let res = sum rolls
+    rolls <- replicateM (abs a) (rollSmpl b o)
+    let res = signum a * sum rolls
     tell $ case rolls of
       [x] -> show x <> "\n"
       xs -> show xs <> "=" <> show res <> "\n"

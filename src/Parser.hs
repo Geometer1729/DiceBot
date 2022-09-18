@@ -21,7 +21,7 @@ import Data.Attoparsec.Text (
   decimal,
   endOfInput,
   parseOnly,
-  string,
+  string, skipSpace,
  )
 import Data.Functor.Foldable.TH (makeBaseFunctor)
 import Text.Show qualified as Show
@@ -45,7 +45,7 @@ instance Show RerollOpts where
   show RerollOpts {best, under} =
     case fold (show <$> best) <> fold (show <$> under) of
       "" -> ""
-      opts -> "r" <> opts
+      opts -> " reroll " <> opts
 
 data RerollBest = RerollBest {dir :: Dir, amt :: Int, keep :: Int}
   deriving stock (Eq, Ord)
@@ -55,8 +55,8 @@ data Dir = Best | Worst
 
 instance Show RerollBest where
   show = \case
-    RerollBest Best a b -> show a <> "k" <> show b
-    RerollBest Worst a b -> show a <> "kw" <> show b
+    RerollBest Best a b -> show a <> " keep best " <> show b
+    RerollBest Worst a b -> show a <> " keep worst " <> show b
 
 data RerollUnder
   = Under Int
@@ -65,8 +65,8 @@ data RerollUnder
 
 instance Show RerollUnder where
   show = \case
-    Under n -> "u" <> show n
-    OnceUnder n -> "ou" <> show n
+    Under n -> "up to " <> show n
+    OnceUnder n -> "once up to " <> show n
 
 makeBaseFunctor ''Roll
 
@@ -112,7 +112,7 @@ expr2 =
 reroll :: Parser RerollOpts
 reroll =
   choice
-    [ (string "r" *>) $ RerollOpts <$> rerollBest <*> rerollUnder
+    [ (skipSpace *> (string "reroll" <|> string "r") *> skipSpace) *> (RerollOpts <$> rerollBest <*> rerollUnder)
     , pure $ RerollOpts Nothing Nothing
     ]
 
@@ -121,9 +121,14 @@ rerollBest =
   choice
     [ (Just <$>) $
         decimal
-          <**> ( ((string "kb" <|> string "k") $> RerollBest Best)
-                  <|> (string "kw" $> RerollBest Worst)
-               )
+          <**> (skipSpace >> RerollBest
+                <$>((string "keep best" $> Best)
+                <|> (string "keep worst" $> Worst)
+                <|> (string "keep" $> Best)
+                <|> (string "kb" $> Best)
+                <|> (string "kw" $> Worst)
+                <|> (string "k" $> Best)
+               ) <* skipSpace)
           <*> decimal
     , pure Nothing
     ]
@@ -131,6 +136,9 @@ rerollBest =
 rerollUnder :: Parser (Maybe RerollUnder)
 rerollUnder =
   choice
-    [ (Just <$>) $ ((string "ou" $> OnceUnder) <|> (string "u" $> Under)) <*> decimal
+    [ (Just <$>) $
+        ((skipSpace *> (string "once up to" <|> string "ou") *> skipSpace $> OnceUnder)
+        <|> (skipSpace *> (string "up to" <|> string "u") *> skipSpace $> Under)
+        ) <*> decimal
     , pure Nothing
     ]

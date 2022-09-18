@@ -32,12 +32,14 @@ instance RollM DistM  where
 report :: Roll -> Int -> Text
 report r res =
   case validate (rollDice r) of
-    Left p ->
-      "stats unavailable because the expression had a "
-      <> showChance p
-      <> " chance of invalid dice"
-    Right !dist ->
-      let
+    Left (p,!d) ->
+      "This expresion has a " <> showChance p <> " chance of invalid dice\n"
+      <> "given a result is valid:\n"
+      <> reportDist d res
+    Right !dist -> reportDist dist res
+
+reportDist :: Dist Int -> Int -> Text
+reportDist !dist res = let
         e = expected dist
         c = chanceOf  (== res) dist
         cb = chanceOf (>= res) dist
@@ -53,15 +55,14 @@ report r res =
                   LT -> "\nchance of getting a roll this high: " <> showChance cb
                   EQ -> "\nmedian roll" -- should be unreachable but median would be correct here
 
-validate :: Ord a => DistM a -> Either Double (Dist a)
+validate :: Ord a => DistM a -> Either (Double,Dist a) (Dist a)
 validate dm = let
   d' = dm & runDistM .> runMaybeT
-    in d' &
-        Dist.toList
-        .> map (\(a,b) -> a <&> (,b))
-        .> sequence
-        .> \case
-          Nothing -> Left $ chanceOf isNothing d'
+  l = d' & Dist.toList .> map (\(a,b) -> a <&> (,b))
+    in l & sequence .> \case
+          Nothing -> let
+            p = chanceOf isNothing d'
+              in Left (p,l & catMaybes .> map (second (/(1-p))) .> Dist.toDist)
           Just xs -> Right $ Dist.toDist xs
 
 showAmt :: Double -> Text

@@ -102,10 +102,11 @@ common shared
   hs-source-dirs:     src
   other-modules:
     Dist
-    Expect
     Parser
     RefTable
-    Roller
+    RollM
+    Sample
+    Stats
 
 executable dice-bot
   import:           shared

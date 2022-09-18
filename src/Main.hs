@@ -6,15 +6,14 @@ import Discord.Internal.Rest.ApplicationCommands
 import Discord.Types
 
 import Discord.Internal.Rest.Interactions as Rest
+import Data.Text qualified as T
 
+import Control.Arrow(right)
+import Flow((.>))
 import Parser (parseRoll)
 import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
-import Roller (rollIO)
-
-import Data.Text qualified as T
-import Expect (report)
-import Flow((.>))
-import Control.Arrow (ArrowChoice(left, right))
+import Sample (rollIO)
+import Stats (report)
 
 main :: IO ()
 main = do

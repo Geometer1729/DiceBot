@@ -4,7 +4,9 @@ module Dist
   ,d
   ,size
   ,times
+  ,times'
   ,toMap
+  ,Dist.toList
   ,toDist
   ,fromMap
   ,expected
@@ -68,13 +70,16 @@ d = range 1
 range :: Int -> Int -> Maybe (Dist Int)
 range a b =
   let p = 1/fromIntegral (b-a+1)
-   in guard (a<b) $> Dist [(i,p) | i <- [a..b]]
+   in guard (a<=b) $> Dist [(i,p) | i <- [a..b]]
 
 toDist :: Foldable f => f (a,Double) -> Dist a
-toDist = toList .> Dist .> msimple
+toDist = Prelude.toList .> Dist .> msimple
 
 fromMap :: Map a Double -> Dist a
 fromMap = Map.toList .> Dist
+
+toList :: Ord a => Dist a -> [(a,Double)]
+toList = simple .> unDist
 
 toMap :: Ord a => Dist a -> Map a Double
 toMap = unDist .> fromListWith (+)
@@ -82,14 +87,20 @@ toMap = unDist .> fromListWith (+)
 size :: Ord a => Dist a -> Int
 size = toMap .> length
 
+
+times :: (Ord a,Num a) => Int -> Dist a -> Dist a
+times = times' 0 (+)
+
 -- | Add together identical distributions
-{-# INLINE times #-}
-times :: Num a => Int -> Dist a -> Dist a
-times 0 _ = 0
-times 1 di = di
-times n di = let
-  !di' = msimple $ times (n `div` 2) di
-    in di' `seq` (di' + di') + times (n `mod` 2) di
+times' :: Ord a => a -> (a -> a -> a) -> Int -> Dist a -> Dist a
+times' m f = let
+  go 0 _ = pure m
+  go 1 di = di
+  go n di = let
+    !di' = simple $ go (n `div` 2) di
+    fm = fmap simple . liftM2 f
+      in di' `seq` fm di' $ fm di' (simple $ go (n `mod` 2) di)
+    in go
 
 expected :: Dist Int -> Double
 expected = toMap .> Map.toList .> map (\(n,p) -> fromIntegral n * p) .> sum
@@ -133,5 +144,8 @@ simple =
 -- TODO look into auto generating rules with template haskell
 
 {-# RULES
- "simpleInts" msimple @Int = simple
+   "simpleInts" msimple @Int = simple
+#-} -- TODO why won't it parse if they are one pragma?
+{-# RULES
+   "simpleMInts" msimple @(Maybe Int) = simple
 #-}

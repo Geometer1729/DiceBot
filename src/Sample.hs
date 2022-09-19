@@ -6,6 +6,7 @@ import Control.Monad.Trans.Except(throwE)
 import RollM (RollM(..),rollDice)
 import Parser (Roll)
 import Flow((.>))
+import Util (joinPair)
 
 newtype Sample a = Sample{runSample :: ExceptT Text (WriterT Text (State StdGen)) a}
   deriving newtype
@@ -24,7 +25,7 @@ rollIO =
     .> runWriterT
     .> runState
     .> getStdRandom
-    .> fmap (\(a,b) -> a <&> (,b))
+    .> fmap joinPair
 
 instance RollM Sample where
   range a b

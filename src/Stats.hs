@@ -13,6 +13,7 @@ import Data.FormatN (percent, commaSF,fixed)
 import Dist(Dist, range, expected,chanceOf)
 import Flow((.>))
 import RollM (RollM(..), rollDice)
+import Util (joinPair)
 
 newtype DistM a = DistM{runDistM :: MaybeT Dist a}
   deriving newtype
@@ -58,7 +59,7 @@ reportDist !dist res = let
 validate :: Ord a => DistM a -> Either (Double,Dist a) (Dist a)
 validate dm = let
   d' = dm & runDistM .> runMaybeT
-  l = d' & Dist.toList .> map (\(a,b) -> a <&> (,b))
+  l = d' & Dist.toList .> map joinPair
     in l & sequence .> \case
           Nothing -> let
             p = chanceOf isNothing d'

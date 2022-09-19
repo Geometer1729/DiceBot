@@ -107,6 +107,7 @@ common shared
     RollM
     Sample
     Stats
+    Util
 
 executable dice-bot
   import:           shared

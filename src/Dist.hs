@@ -26,6 +26,7 @@ import Flow((.>),(<.),(|>))
 import Data.Map.Strict (fromListWith)
 import Control.Monad (liftM2)
 import GHC.Show qualified as Show
+import Util (joinPair)
 
 newtype Dist a = Dist{unDist :: [(a,Double)]}
 
@@ -87,7 +88,6 @@ toMap = unDist .> fromListWith (+)
 size :: Ord a => Dist a -> Int
 size = toMap .> length
 
-
 times :: (Ord a,Num a) => Int -> Dist a -> Dist a
 times = times' 0 (+)
 
@@ -113,7 +113,7 @@ maybeIn Nothing = pure Nothing
 maybeIn (Just di) = Just <$> di
 
 maybeOut :: Ord a => Dist (Maybe a) -> Maybe (Dist a)
-maybeOut = simple .> unDist .> traverse (\(a,b) -> a <&> (,b)) .> fmap Dist
+maybeOut = simple .> unDist .> traverse joinPair .> fmap Dist
 
 -- unsafe
 -- these functions are unsafe because

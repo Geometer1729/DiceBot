@@ -5,15 +5,15 @@ import Discord.Interactions
 import Discord.Internal.Rest.ApplicationCommands
 import Discord.Types
 
-import Discord.Internal.Rest.Interactions as Rest
 import Data.Text qualified as T
+import Discord.Internal.Rest.Interactions as Rest
 
-import Control.Arrow(right)
-import Flow((.>))
+import Control.Arrow (right)
+import Flow ((.>))
 import Parser (parseRoll)
 import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
 import Sample (rollIO)
-import Stats (report)
+import Stats (genReport)
 
 main :: IO ()
 main = do
@@ -98,13 +98,15 @@ handler rt = \case
             }
         , ..
         }
-    ) -> rc_ $ CreateInteractionResponse
+    ) ->
+      rc_ $
+        CreateInteractionResponse
           interactionId
           interactionToken
-          $ interactionResponseBasic
-          $ "/help prints this\n"
-          <> "/r rolls an expression\n"
-          <> helpText
+          $ interactionResponseBasic $
+            "/help prints this\n"
+              <> "/r rolls an expression\n"
+              <> helpText
   ( InteractionCreate
       InteractionApplicationCommand
         { applicationCommandData =
@@ -132,6 +134,7 @@ handler rt = \case
   ( InteractionCreate
       InteractionComponent
         { interactionId
+        , interactionApplicationId
         , interactionToken
         , componentData = ButtonData button
         }
@@ -159,39 +162,59 @@ handler rt = \case
           res <- case readMaybe $ toString res' of
             Nothing -> die "failed to read res in stats"
             Just res -> pure res
-          rc_ $
-            CreateInteractionResponse
-              interactionId
-              interactionToken
-              $ interactionResponseBasic $
-                report roll res
+          genReport roll res >>= \case
+            Right report ->
+              rc_ $
+                CreateInteractionResponse
+                  interactionId
+                  interactionToken
+                  $ interactionResponseBasic report
+            Left cont -> do
+              rc_ $
+                CreateInteractionResponse
+                  interactionId
+                  interactionToken
+                  InteractionResponseDeferChannelMessage
+              -- interactionResponseBasic "Hold on I'm still number crunching"
+              liftIO cont >>= \case
+                Just report ->
+                  rc_ $
+                    CreateFollowupInteractionMessage
+                      interactionApplicationId
+                      interactionToken
+                      $ interactionResponseMessageBasic report
+                Nothing ->
+                  rc_ $
+                    CreateFollowupInteractionMessage
+                      interactionApplicationId
+                      interactionToken
+                      $ interactionResponseMessageBasic "sorry timed out"
         (T.stripPrefix "err:" -> Just msg) ->
           rc_ $
             CreateInteractionResponse
               interactionId
               interactionToken
               $ interactionResponseBasic
-              msg
+                msg
         _ -> die $ toString $ "unexpected button data:" <> button
   e -> when False $ print e
 
 helpText :: Text
-helpText
-  = "expressions can be:\n"
-  <> "constants like 1,3 or 42\n"
-  <> "math like 1+1 or 2\\*3\n"
-  <> "dice like d20,d12 or d6\n"
-  <> "multiple dice like 5d6 or 2d8\n"
-  <> "dice can also be mixed with math like 2*(3d12+d6+6)\n"
-  <> "dice can also have rerolls\n"
-  <> "like `d20 reroll 2 keep best 1` (which can be shortened to d20r2k1) to roll a d20 twice and keep the best 1\n"
-  <> "or `d6 reroll 5 keep worst 1` (shortened to d6r5kw1) to roll a d20 twice and keep the worst 1\n"
-  <> "or `d6 reroll up to 3` (shortened to d6ru3) to roll a d6 but reroll low rolls up to 3\n"
-  <> "or `d6 reroll once up to 3` (shortened to d6rou3) to roll a d6 and reroll low rolls up to 3 but at most once\n"
-  <> "the numbers of dice can also be expresions\n"
-  <> "like (4+2)d6\n"
-  <> "or (d3)d(d3)\n"
-
+helpText =
+  "expressions can be:\n"
+    <> "constants like 1,3 or 42\n"
+    <> "math like 1+1 or 2\\*3\n"
+    <> "dice like d20,d12 or d6\n"
+    <> "multiple dice like 5d6 or 2d8\n"
+    <> "dice can also be mixed with math like 2*(3d12+d6+6)\n"
+    <> "dice can also have rerolls\n"
+    <> "like `d20 reroll 2 keep best 1` (which can be shortened to d20r2k1) to roll a d20 twice and keep the best 1\n"
+    <> "or `d6 reroll 5 keep worst 1` (shortened to d6r5kw1) to roll a d20 twice and keep the worst 1\n"
+    <> "or `d6 reroll up to 3` (shortened to d6ru3) to roll a d6 but reroll low rolls up to 3\n"
+    <> "or `d6 reroll once up to 3` (shortened to d6rou3) to roll a d6 and reroll low rolls up to 3 but at most once\n"
+    <> "the numbers of dice can also be expresions\n"
+    <> "like (4+2)d6\n"
+    <> "or (d3)d(d3)\n"
 
 rollExpr :: RefTable -> InteractionId -> InteractionToken -> Maybe Int -> Text -> DiscordHandler ()
 rollExpr rt interactionId interactionToken times expr =
@@ -204,16 +227,17 @@ rollExpr rt interactionId interactionToken times expr =
           $ interactionResponseBasic $
             "Failed to parse: " <> expr <> "\n\n" <> helpText
     Right roll -> do
-      (res' :: Either Text (Text,Text)) <- case times of
+      (res' :: Either Text (Text, Text)) <- case times of
         Nothing -> rollIO roll <&> right (first (show @Text))
         Just t -> replicateM t (rollIO roll) <&> (sequence .> right (unzip .> second T.concat .> first (show @Text)))
       case res' of
-        Left err -> rc_
-          $ CreateInteractionResponse
-          interactionId
-          interactionToken
-          $ interactionResponseBasic err
-        Right (res :: Text,logs) -> do
+        Left err ->
+          rc_ $
+            CreateInteractionResponse
+              interactionId
+              interactionToken
+              $ interactionResponseBasic err
+        Right (res :: Text, logs) -> do
           let rollPrefix =
                 case times of
                   Nothing -> "roll:"

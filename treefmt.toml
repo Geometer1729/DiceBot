@@ -5,6 +5,8 @@ options = [
     "-XImportQualifiedPost",
     "--ghc-opt",
     "-XTypeApplications",
+    "--ghc-opt",
+    "-XBangPatterns",
     "--mode",
     "inplace",
     "--check-idempotence",

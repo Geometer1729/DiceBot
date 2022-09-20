@@ -1,4 +1,4 @@
-module RollM (rollDice,RollM(..)) where
+module RollM (rollDice, RollM (..)) where
 
 import Data.Functor.Foldable (Base, Recursive, project)
 import Parser (Dir (..), RerollBest (..), RerollOpts (..), RerollUnder (..), Roll, RollF (..))
@@ -56,4 +56,3 @@ rollSmpl n RerollOpts {..} = withBest
             log $ "~~" <> show res <> "~~ "
             d n
           else pure res
-

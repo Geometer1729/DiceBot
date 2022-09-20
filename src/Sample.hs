@@ -1,25 +1,25 @@
-module Sample(rollIO)where
+module Sample (rollIO) where
 
-import Control.Monad.Writer (WriterT, runWriterT, tell, MonadWriter)
-import System.Random (StdGen, getStdRandom, randomR)
-import Control.Monad.Trans.Except(throwE)
-import RollM (RollM(..),rollDice)
+import Control.Monad.Trans.Except (throwE)
+import Control.Monad.Writer (MonadWriter, WriterT, runWriterT, tell)
+import Flow ((.>))
 import Parser (Roll)
-import Flow((.>))
+import RollM (RollM (..), rollDice)
+import System.Random (StdGen, getStdRandom, randomR)
 import Util (joinPair)
 
-newtype Sample a = Sample{runSample :: ExceptT Text (WriterT Text (State StdGen)) a}
+newtype Sample a = Sample {runSample :: ExceptT Text (WriterT Text (State StdGen)) a}
   deriving newtype
-    (Functor
-    ,Applicative
-    ,Monad
-    ,MonadState StdGen
-    ,MonadWriter Text
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadState StdGen
+    , MonadWriter Text
     )
 
 rollIO :: MonadIO m => Roll -> m (Either Text (Int, Text))
 rollIO =
-    rollDice
+  rollDice
     .> runSample
     .> runExceptT
     .> runWriterT
@@ -29,8 +29,8 @@ rollIO =
 
 instance RollM Sample where
   range a b
-      | b < a = throw "dice with 0 or fewer sides encountered"
-      | otherwise = state $ randomR (a, b)
+    | b < a = throw "dice with 0 or fewer sides encountered"
+    | otherwise = state $ randomR (a, b)
   times n r = do
     rolls <- replicateM (abs n) r
     let res = (signum n *) . sum $ rolls
@@ -40,4 +40,3 @@ instance RollM Sample where
     pure res
   log = tell
   throw = Sample . throwE
-

@@ -24,8 +24,7 @@ common shared
   ghc-options:
     -Wall -Wincomplete-record-updates -Wincomplete-uni-patterns
     -Wmissing-deriving-strategies -Wunused-foralls -Wunused-foralls
-    -fprint-explicit-foralls -fprint-explicit-kinds
-    -O2
+    -fprint-explicit-foralls -fprint-explicit-kinds -O2
     -fenable-rewrite-rules
 
   -- rule debuging
@@ -39,12 +38,11 @@ common shared
     relude
 
   default-extensions:
-    DeriveAnyClass
-    Strict
     NoStarIsType
     BangPatterns
     ConstraintKinds
     DataKinds
+    DeriveAnyClass
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
@@ -77,6 +75,7 @@ common shared
     ScopedTypeVariables
     StandaloneDeriving
     StandaloneKindSignatures
+    Strict
     TupleSections
     TypeApplications
     TypeFamilies
@@ -87,6 +86,7 @@ common shared
     , attoparsec
     , base
     , containers
+    , criterion
     , discord-haskell
     , entropy            ==0.4.1.7
     , flow
@@ -100,7 +100,6 @@ common shared
     , stm
     , text
     , transformers
-    , criterion
 
   -- TODO is there a better way to specify versions for unused packages
   hs-source-dirs:     src

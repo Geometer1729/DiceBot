@@ -24,7 +24,8 @@ common shared
   ghc-options:
     -Wall -Wincomplete-record-updates -Wincomplete-uni-patterns
     -Wmissing-deriving-strategies -Wunused-foralls -Wunused-foralls
-    -fprint-explicit-foralls -fprint-explicit-kinds -O2
+    -fprint-explicit-foralls -fprint-explicit-kinds
+    -O2
     -fenable-rewrite-rules
 
   -- rule debuging
@@ -38,6 +39,8 @@ common shared
     relude
 
   default-extensions:
+    DeriveAnyClass
+    Strict
     NoStarIsType
     BangPatterns
     ConstraintKinds
@@ -97,6 +100,7 @@ common shared
     , stm
     , text
     , transformers
+    , criterion
 
   -- TODO is there a better way to specify versions for unused packages
   hs-source-dirs:     src
@@ -119,4 +123,11 @@ test-suite tests
   main-is:        Spec.hs
   type:           exitcode-stdio-1.0
   hs-source-dirs: tests
+  build-depends:  hspec
+
+benchmark bench
+  import:         shared
+  main-is:        Bench.hs
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: bench
   build-depends:  hspec

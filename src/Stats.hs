@@ -1,6 +1,8 @@
 module Stats
   (report
   ,DistM(runDistM)
+  -- benchmakring exports
+  , getExpected
   ) where
 
 import Parser
@@ -38,6 +40,11 @@ report r res =
       <> "given a result is valid:\n"
       <> reportDist d res
     Right !dist -> reportDist dist res
+
+getExpected :: Roll -> Maybe Double
+getExpected r = do
+  Right !d <- pure $ validate $ rollDice r
+  pure $ expected d
 
 reportDist :: Dist Int -> Int -> Text
 reportDist !dist res = let

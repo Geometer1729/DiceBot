@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+
 module Dist
   (Dist
   ,range
@@ -29,6 +31,8 @@ import GHC.Show qualified as Show
 import Util (joinPair)
 
 newtype Dist a = Dist{unDist :: [(a,Double)]}
+  deriving stock Generic
+  deriving anyclass NFData
 
 instance (Ord a,Show a) => Show (Dist a) where
   show = toMap .> show
@@ -88,19 +92,30 @@ toMap = unDist .> fromListWith (+)
 size :: Ord a => Dist a -> Int
 size = toMap .> length
 
-times :: (Ord a,Num a) => Int -> Dist a -> Dist a
+times :: (Ord a,Num a,NFData a) => Int -> Dist a -> Dist a
 times = times' 0 (+)
 
 -- | Add together identical distributions
-times' :: Ord a => a -> (a -> a -> a) -> Int -> Dist a -> Dist a
-times' m f = let
-  go 0 _ = pure m
-  go 1 di = di
-  go n di = let
-    !di' = simple $ go (n `div` 2) di
-    fm = fmap simple . liftM2 f
-      in di' `seq` fm di' $ fm di' (simple $ go (n `mod` 2) di)
-    in go
+-- with a given identity and addition
+times' :: (NFData a,Ord a) => a -> (a -> a -> a) -> Int -> Dist a -> Dist a
+times' m f n dist = let
+  ma = toMap dist
+    in Dist $ Map.toList $ timesMap m f n ma
+
+timesMap :: forall a. (NFData a,Ord a) => a -> (a -> a -> a) -> Int -> Map a Double -> Map a Double
+timesMap m _ 0 _ = one (m,1)
+timesMap _ _ 1 ma = ma
+timesMap m f n ma = let
+  ma' = timesMap m f (n `div` 2) ma
+  madd :: Map a Double -> Map a Double -> Map a Double
+  madd x y = Map.fromListWith (+) $
+      [ (f a b,p1*p2)
+      | (a,p1) <- Map.toList x
+      , (b,p2) <- Map.toList y
+      ]
+    in if even n
+          then madd ma' ma'
+          else madd ma' $ madd ma' ma
 
 expected :: Dist Int -> Double
 expected = toMap .> Map.toList .> map (\(n,p) -> fromIntegral n * p) .> sum

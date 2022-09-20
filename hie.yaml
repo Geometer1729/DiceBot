@@ -4,3 +4,5 @@ cradle:
       component: "exe:dice-bot"
     - path: "tests"
       component: "test:tests"
+    - path: "bench"
+      component: "benchmark:bench"

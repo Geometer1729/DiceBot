@@ -175,7 +175,6 @@ handler rt = \case
                   interactionId
                   interactionToken
                   InteractionResponseDeferChannelMessage
-              -- interactionResponseBasic "Hold on I'm still number crunching"
               liftIO cont >>= \case
                 Just report ->
                   rc_ $

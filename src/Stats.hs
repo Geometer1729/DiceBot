@@ -36,21 +36,26 @@ instance RollM DistM where
 genReport :: MonadIO m => Roll -> Int -> m (Either (IO (Maybe Text)) Text)
 genReport ro res = liftIO $ do
   reportVar <- newEmptyMVar
-  pid <- forkIO $ do
+  pid1 <- forkIO $ do
     a <- evaluateNF (report ro res)
-    putMVar reportVar a
-  liftIO $ threadDelay 1_000_000
-  tryTakeMVar reportVar >>= \case
-    Nothing -> do
-      pure $
-        Left $ do
-          liftIO $ threadDelay 10_000_000
-          tryTakeMVar reportVar >>= \case
+    putMVar reportVar (Just a)
+  pid2 <- forkIO $ do
+    liftIO $ threadDelay 1_000_000
+    putMVar reportVar Nothing
+    liftIO $ threadDelay 10_000_000
+    putMVar reportVar Nothing
+  takeMVar reportVar >>= \case
+    Nothing -> pure $ Left $
+          takeMVar reportVar >>= \case
+            Just r -> do
+              killThread pid2
+              pure $ Just r
             Nothing -> do
-              killThread pid
+              killThread pid1
               pure Nothing
-            Just r -> pure $ Just r
-    Just r -> pure $ Right r
+    Just r -> do
+      killThread pid2
+      pure $ Right r
 
 report :: Roll -> Int -> Text
 report r res =

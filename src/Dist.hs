@@ -20,7 +20,6 @@ module Dist (
   unsafeToList,
 ) where
 
-import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 
 import Control.Monad (liftM2)
@@ -50,8 +49,7 @@ instance Applicative Dist where
 
 instance Monad Dist where
   {-# INLINE (>>=) #-}
-  x >>= f = msimple $
-    Dist $ do
+  x >>= f = msimple $ Dist $ do
       (x', p1) <- unDist x
       (y, p2) <- unDist $ f x'
       pure (y, p1 * p2)
@@ -152,12 +150,7 @@ msimple :: Dist a -> Dist a
 msimple = id
 
 simple :: Ord a => Dist a -> Dist a
-simple =
-  unDist
-    .> sort
-    .> List.groupBy ((==) `on` fst)
-    .> map ((List.head .> fst) &&& (map snd .> sum))
-    .> Dist
+simple (Dist xs) = Dist $ Map.toList $ Map.fromListWith (+) xs
 
 -- TODO look into auto generating rules with template haskell
 

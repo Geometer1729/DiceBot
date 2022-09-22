@@ -21,7 +21,7 @@ rollDice = cataM $ \case
   CF n -> pure n
   AddF a b -> pure $ a + b
   MulF a b -> pure $ a * b
-  DivF a b -> pure $ a `div` b
+  DivF a b -> if b == 0 then throw "encountered division bv 0" else pure $ a `div` b
   SubF a b -> pure $ a - b
   DF o a b -> do
     log $ case a of

@@ -38,6 +38,7 @@ common shared
     relude
 
   default-extensions:
+    DeriveAnyClass
     NoStarIsType
     BangPatterns
     ConstraintKinds

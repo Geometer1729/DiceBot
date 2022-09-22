@@ -61,7 +61,7 @@ report :: Roll -> Int -> Text
 report r res =
   case validate (rollDice r) of
     Left (p, !d) ->
-      "This expresion has a " <> showChance p <> " chance of invalid dice\n"
+      "This expresion has a " <> showChance p <> " chance of division by 0 or invalid dice\n"
         <> "given a result is valid:\n"
         <> reportDist d res
     Right !dist -> reportDist dist res

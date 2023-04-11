@@ -242,6 +242,9 @@ helpText =
     <> "the numbers of dice can also be expresions\n"
     <> "like (4+2)d6\n"
     <> "or (d3)d(d3)\n"
+    <> "there is also special syntax for song of swords checks"
+    <> "sos5 will roll 5d10s and return the number of them which were at least 7"
+    <> "if the target is not 7 it can be specified after a t like sos5t6"
 
 rollExpr :: RefTable -> InteractionId -> InteractionToken -> Maybe Int -> Text -> DiscordHandler ()
 rollExpr rt interactionId interactionToken times expr =

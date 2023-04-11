@@ -20,11 +20,11 @@
     "discord-haskell": {
       "flake": false,
       "locked": {
-        "lastModified": 1662744186,
-        "narHash": "sha256-qwCdDdMxYx4C7FDGvChtOUApS0ltBW1UZ4aj/cwoU5o=",
+        "lastModified": 1675514622,
+        "narHash": "sha256-juNECIvthw/4F8VOCej1nZVGzZzS83+i/z66r2EGJqs=",
         "owner": "discord-haskell",
         "repo": "discord-haskell",
-        "rev": "c3808e00ded98c762dc33289401c3cf98843bf8b",
+        "rev": "8a82208cbb59e1ab24176a90de8b0706c08ddb31",
         "type": "github"
       },
       "original": {

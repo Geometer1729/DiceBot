@@ -30,6 +30,7 @@ import Text.Show qualified as Show
 
 data Roll
   = D RerollOpts Roll Roll
+  | SOS Roll Roll
   | C Int
   | Add Roll Roll
   | Mul Roll Roll
@@ -92,6 +93,7 @@ dice :: Parser Roll
 dice =
   choice
     [ (fmap flip . flip) D <$> (constant <|> pure (C 1)) <*> (string "d" *> dice) <*> reroll
+    , SOS <$> (string "sos" *> constant) <*> (string "t" *> constant <|> pure (C 7))
     , constant
     ]
 

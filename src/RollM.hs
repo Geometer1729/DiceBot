@@ -5,9 +5,13 @@ import Parser (Dir (..), RerollBest (..), RerollOpts (..), RerollUnder (..), Rol
 
 class Monad m => RollM m where
   range :: Int -> Int -> m Int
-  times :: Int -> m Int -> m Int
   log :: Text -> m ()
   throw :: Text -> m a
+  times :: Int -> m Int -> m Int
+  times n = times' n id
+
+  times' :: Int -> (Int -> Int) -> m Int -> m Int
+  times' n f m = times n (f <$> m)
 
 d :: RollM r => Int -> r Int
 d = range 1
@@ -23,6 +27,9 @@ rollDice = cataM $ \case
   MulF a b -> pure $ a * b
   DivF a b -> if b == 0 then throw "encountered division bv 0" else pure $ a `div` b
   SubF a b -> pure $ a - b
+  SOSF a b -> do
+    log $ show a <> "d10" <> "= "
+    a `times'` (\r -> if r >= b then 1 else 0) $ rollSmpl 10 RerollOpts{best=Nothing,under=Nothing}
   DF o a b -> do
     log $ case a of
       1 -> "d" <> show b <> show o <> "= "

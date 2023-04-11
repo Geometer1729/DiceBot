@@ -17,8 +17,8 @@ import Stats (genReport)
 
 main :: IO ()
 main = do
-  tok <- T.strip <$> readFileText "token.auth"
-  rt <- newRefTable
+  tok <- T.strip <$> readFileText "./token.auth"
+  rt<- newRefTable
   print
     =<< runDiscord
       def

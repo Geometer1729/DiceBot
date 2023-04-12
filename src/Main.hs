@@ -6,7 +6,6 @@ import Discord.Internal.Rest.ApplicationCommands
 import Discord.Types
 
 import Data.Text qualified as T
-import Discord.Internal.Rest.Interactions as Rest
 
 import Control.Arrow (right)
 import Flow ((.>))
@@ -14,16 +13,17 @@ import Parser (parseRoll)
 import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
 import Sample (rollIO)
 import Stats (genReport)
+import Response (Response, respond, followUp, mkInteractionHandler, rc, rc_)
 
 main :: IO ()
 main = do
-  tok <- T.strip <$> readFileText "./token.auth"
-  rt<- newRefTable
+  token <- T.strip <$> readFileText "./token.auth"
+  rt <- newRefTable
   print
     =<< runDiscord
       def
-        { discordToken = tok
-        , discordOnStart = startup
+        { discordToken = token
+        , discordOnStart = liftIO $ putStrLn "Starting"
         , discordOnEvent = handler rt
         , discordGatewayIntent =
             def
@@ -32,85 +32,38 @@ main = do
               }
         }
 
-startup :: DiscordHandler ()
-startup = do
-  liftIO $ putStrLn "Starting"
-
 coms :: [CreateApplicationCommand]
 coms =
-  [ CreateApplicationCommandChatInput
-      { createName = "r"
-      , createLocalizedName = Nothing
-      , createDescription = "roll some dice"
-      , createLocalizedDescription = Nothing
-      , createOptions =
-          Just $
-            OptionsValues
-              [ OptionValueString
-                  { optionValueName = "expr"
-                  , optionValueLocalizedName = Nothing
-                  , optionValueDescription = "the dice expression to be rolled"
-                  , optionValueLocalizedDescription = Nothing
-                  , optionValueRequired = True
-                  , optionValueStringChoices = Left False
-                  , optionValueStringMinLen = Just 1
-                  , optionValueStringMaxLen = Nothing
-                  }
-              , OptionValueInteger
-                  { optionValueName = "times"
-                  , optionValueLocalizedName = Nothing
-                  , optionValueDescription = "time number of times to roll it"
-                  , optionValueLocalizedDescription = Nothing
-                  , optionValueRequired = False
-                  , optionValueIntegerChoices = Left False
-                  , optionValueIntegerMinVal = Just 1
-                  , optionValueIntegerMaxVal = Nothing
-                  }
-              ]
-      , createDefaultMemberPermissions = Nothing
-      , createDMPermission = Nothing
-      }
-  , CreateApplicationCommandChatInput
-      { createName = "stats"
-      , createLocalizedName = Nothing
-      , createDescription = "get stats info"
-      , createLocalizedDescription = Nothing
-      , createDefaultMemberPermissions = Nothing
-      , createDMPermission = Nothing
-      , createOptions =
-          Just $
-            OptionsValues
-              [ OptionValueString
-                  { optionValueName = "expr"
-                  , optionValueLocalizedName = Nothing
-                  , optionValueDescription = "the dice expression"
-                  , optionValueLocalizedDescription = Nothing
-                  , optionValueRequired = True
-                  , optionValueStringChoices = Left False
-                  , optionValueStringMinLen = Just 1
-                  , optionValueStringMaxLen = Nothing
-                  }
-              , OptionValueInteger
-                  { optionValueName = "result"
-                  , optionValueLocalizedName = Nothing
-                  , optionValueDescription = "the result"
-                  , optionValueLocalizedDescription = Nothing
-                  , optionValueRequired = True
-                  , optionValueIntegerChoices = Left False
-                  , optionValueIntegerMinVal = Nothing
-                  , optionValueIntegerMaxVal = Nothing
-                  }
-              ]
-      }
-  , CreateApplicationCommandChatInput
-      { createName = "help"
-      , createLocalizedName = Nothing
-      , createDescription = "send help text"
-      , createLocalizedDescription = Nothing
-      , createOptions = Nothing
-      , createDefaultMemberPermissions = Nothing
-      , createDMPermission = Nothing
-      }
+  [ simpleCommand "r" "roll some dice" $ Just $
+      OptionsValues
+        [ exprOption
+        , OptionValueInteger
+            { optionValueName = "times"
+            , optionValueLocalizedName = Nothing
+            , optionValueDescription = "time number of times to roll it"
+            , optionValueLocalizedDescription = Nothing
+            , optionValueRequired = False
+            , optionValueIntegerChoices = Left False
+            , optionValueIntegerMinVal = Just 1
+            , optionValueIntegerMaxVal = Nothing
+            }
+        ]
+  , simpleCommand "stats" "get stats info" $
+    Just $
+      OptionsValues
+        [ exprOption
+        , OptionValueInteger
+            { optionValueName = "result"
+            , optionValueLocalizedName = Nothing
+            , optionValueDescription = "the result"
+            , optionValueLocalizedDescription = Nothing
+            , optionValueRequired = True
+            , optionValueIntegerChoices = Left False
+            , optionValueIntegerMinVal = Nothing
+            , optionValueIntegerMaxVal = Nothing
+            }
+        ]
+  , simpleCommand "help" "send help text" Nothing
   ]
 
 handler :: RefTable -> Event -> DiscordHandler ()
@@ -118,113 +71,77 @@ handler rt = \case
   Ready _ _ _ _ _ _ (PartialApplication i _) -> do
     putStrLn "ready"
     oldComs <- rc $ GetGlobalApplicationCommands i
-    let removedComs = Prelude.filter (\c -> applicationCommandName c `notElem` (createName <$> coms)) oldComs
+    let removedComs
+          = Prelude.filter
+          (\c -> applicationCommandName c `notElem` (createName <$> coms))
+          oldComs
     forM_ removedComs $ rc_ . DeleteGlobalApplicationCommand i . applicationCommandId
     forM_ coms $ rc . CreateGlobalApplicationCommand i
     putStrLn "commands registered"
-  ( InteractionCreate
-      InteractionApplicationCommand
-        { applicationCommandData =
-          ApplicationCommandDataChatInput
-            { applicationCommandDataName = "help"
-            }
-        , ..
-        }
-    ) ->
-      rc_ $
-        CreateInteractionResponse
-          interactionId
-          interactionToken
-          $ interactionResponseBasic $
-            "/help prints this\n"
-              <> "/r rolls an expression\n"
-              <> helpText
-  ( InteractionCreate
-      InteractionApplicationCommand
-        { applicationCommandData =
-          ApplicationCommandDataChatInput
-            { applicationCommandDataName = "r"
-            , optionsData = Just (OptionsDataValues [OptionDataValueString _ (Right expr)])
-            }
-        , ..
-        }
-    ) -> rollExpr rt interactionId interactionToken Nothing expr
-  ( InteractionCreate
-      InteractionApplicationCommand
-        { applicationCommandData =
-          ApplicationCommandDataChatInput
-            { applicationCommandDataName = "r"
-            , optionsData = Just
-              (OptionsDataValues
-                [OptionDataValueString _ (Right expr)
-                , OptionDataValueInteger _ times'
-                ]
-              )
-            }
-        , ..
-        }
-    ) ->
-      let times = case times' of
-            Left _ -> Nothing
-            Right t -> Just $ fromInteger t
-       in rollExpr rt interactionId interactionToken times expr
-  ( InteractionCreate
-      InteractionApplicationCommand
-        { applicationCommandData =
-          ApplicationCommandDataChatInput
-            { applicationCommandDataName = "stats"
-            , optionsData = Just
-              (OptionsDataValues
-                [OptionDataValueString _ (Right expr)
-                , OptionDataValueInteger _ result'
-                ]
-              )
-            }
-        , ..
-        }
-    ) -> case result' of
-           Left _ -> pass
-           Right result ->
-             stats (fromInteger result) expr
-              interactionId interactionToken interactionApplicationId
-  ( InteractionCreate
-      InteractionComponent
-        { interactionId
-        , interactionApplicationId
-        , interactionToken
-        , componentData = ButtonData button
-        }
-    ) ->
-      maybeUnRef rt button >>= \case
-        (T.stripPrefix "roll:" -> Just expr) -> do
-          rollExpr rt interactionId interactionToken Nothing expr
-        (T.stripPrefix "rollt:" -> Just rest) -> do
-          let (times', T.tail -> expr) = T.breakOn ":" rest
-          case readMaybe $ toString times' of
-            Just times -> do
-              rollExpr rt interactionId interactionToken (Just times) expr
-            Nothing -> die "failed to parse times in rollt"
-        (T.stripPrefix "logs:" -> Just logs) -> do
-          rc_ $
-            CreateInteractionResponse
-              interactionId
-              interactionToken
-              $ interactionResponseBasic logs
-        (T.stripPrefix "stats:" -> Just rest) -> do
-          let (res', T.tail -> expr) = T.breakOn "," rest
-          res <- case readMaybe $ toString res' of
-            Nothing -> die "failed to read res in stats"
-            Just res -> pure res
-          stats res expr interactionId interactionToken interactionApplicationId
-        (T.stripPrefix "err:" -> Just msg) ->
-          rc_ $
-            CreateInteractionResponse
-              interactionId
-              interactionToken
-              $ interactionResponseBasic
-                msg
-        _ -> die $ toString $ "unexpected button data:" <> button
-  e -> when False $ print e
+  InteractionCreate interaction ->
+    mkInteractionHandler interaction $
+      case interaction of
+        ( InteractionApplicationCommand
+              { applicationCommandData =
+                ApplicationCommandDataChatInput
+                  { applicationCommandDataName = name
+                  , optionsData = options
+                  }
+              }
+          ) ->
+            case name of
+               "help" ->
+                 respond
+                    $ interactionResponseBasic
+                    $ "/help prints this\n"
+                    <> "/r rolls an expression\n"
+                    <> helpText
+               "stats" ->
+                 case options of
+                   (Just (OptionsDataValues
+                     [ OptionDataValueString _ (Right expr)
+                     , OptionDataValueInteger _ (Right result)
+                     ]
+                     )) -> stats (fromInteger result) expr
+                   _ -> putStrLn $ "Bad options for stats:" <> show options
+               "r" ->
+                 case options of
+                   (Just (OptionsDataValues
+                     [ OptionDataValueString _ (Right expr)]
+                     )) -> rollExpr rt Nothing expr
+                   (Just (OptionsDataValues
+                     [ OptionDataValueString _ (Right expr)
+                     , OptionDataValueInteger _ (Right times)
+                     ]
+                     )) -> rollExpr rt (Just $ fromInteger times) expr
+                   _ -> putStrLn $ "Bad options for r: " <> show options
+               com -> putStrLn $ "bad command: " <> show com
+        ( InteractionComponent{componentData = ButtonData button }
+          ) -> maybeUnRef rt button >>= \case
+              (T.stripPrefix "roll:" -> Just expr) -> do
+                rollExpr rt Nothing expr
+              (T.stripPrefix "rollt:" -> Just rest) -> do
+                let (times', T.tail -> expr) = T.breakOn ":" rest
+                case readMaybe $ toString times' of
+                  Just times -> do
+                    rollExpr rt (Just times) expr
+                  Nothing -> die "failed to parse times in rollt"
+              (T.stripPrefix "logs:" -> Just logs) -> do
+                respond $ interactionResponseBasic logs
+              (T.stripPrefix "stats:" -> Just rest) -> do
+                let (res', T.tail -> expr) = T.breakOn "," rest
+                res <- case readMaybe $ toString res' of
+                  Nothing -> die "failed to read res in stats"
+                  Just res -> pure res
+                stats res expr
+              (T.stripPrefix "err:" -> Just msg) ->
+                respond $ interactionResponseBasic
+                      msg
+              _ -> die $ toString $ "unexpected button data:" <> button
+        i -> do
+          putStrLn "unhandled interaction"
+          print i
+  _ -> pass
 
 helpText :: Text
 helpText =
@@ -246,119 +163,95 @@ helpText =
     <> "sos5 will roll 5d10s and return the number of them which were at least 7"
     <> "if the target is not 7 it can be specified after a t like sos5t6"
 
-rollExpr :: RefTable -> InteractionId -> InteractionToken -> Maybe Int -> Text -> DiscordHandler ()
-rollExpr rt interactionId interactionToken times expr =
+rollExpr :: RefTable -> Maybe Int -> Text -> Response ()
+rollExpr rt times expr =
   case parseRoll expr of
     Left _ ->
-      rc_ $
-        CreateInteractionResponse
-          interactionId
-          interactionToken
-          $ interactionResponseBasic $
-            "Failed to parse: " <> expr <> "\n\n" <> helpText
+      respond $ interactionResponseBasic
+        $ "Failed to parse: " <> expr <> "\n\n" <> helpText
     Right roll -> do
       (res' :: Either Text (Text, Text)) <- case times of
         Nothing -> rollIO roll <&> right (first (show @Text))
         Just t -> replicateM t (rollIO roll) <&> (sequence .> right (unzip .> second T.concat .> first (show @Text)))
       case res' of
         Left err ->
-          rc_ $
-            CreateInteractionResponse
-              interactionId
-              interactionToken
-              $ interactionResponseBasic err
+          respond $ interactionResponseBasic err
         Right (res :: Text, logs) -> do
           let rollPrefix =
                 case times of
                   Nothing -> "roll:"
                   Just t -> "rollt:" <> show t <> ":"
-          logMsg <- maybeMakeRef rt ("logs:" <> (if logs == "" then "It was a constant." else logs))
-          rollMsg <- maybeMakeRef rt (rollPrefix <> expr)
-          statsMsg <- maybeMakeRef rt ("stats:" <> res <> "," <> expr)
-          rc_ $
-            CreateInteractionResponse
-              interactionId
-              interactionToken
-              $ InteractionResponseChannelMessage $
-                InteractionResponseMessage
-                  { interactionResponseMessageTTS = Nothing
-                  , interactionResponseMessageContent =
-                      Just $ expr <> "= **" <> res <> "**"
-                  , interactionResponseMessageEmbeds = Nothing
-                  , interactionResponseMessageAllowedMentions = Nothing
-                  , interactionResponseMessageFlags = Nothing
-                  , interactionResponseMessageComponents =
-                      Just
-                        [ ActionRowButtons
-                            [ Button
-                                { buttonCustomId = rollMsg
-                                , buttonDisabled = False
-                                , buttonStyle = ButtonStylePrimary
-                                , buttonLabel = Just "Reroll"
-                                , buttonEmoji = Nothing
-                                }
-                            , Button
-                                { buttonCustomId = logMsg
-                                , buttonDisabled = False
-                                , buttonStyle = ButtonStylePrimary
-                                , buttonLabel = Just "How?"
-                                , buttonEmoji = Nothing
-                                }
-                            , Button
-                                { buttonCustomId = statsMsg
-                                , buttonDisabled = False
-                                , buttonStyle = ButtonStylePrimary
-                                , buttonLabel = Just "Stats"
-                                , buttonEmoji = Nothing
-                                }
-                            ]
-                        ]
-                  , interactionResponseMessageAttachments = Nothing
-                  }
+          buttons <- mapM (uncurry $ genButton rt)
+            [("Reroll",rollPrefix <> expr)
+            ,("How?","logs:" <> (if logs == "" then "It was a constant." else logs))
+            ,("Stats","stats:" <> res <> "," <> expr)
+            ]
+          respond
+            $ InteractionResponseChannelMessage
+            $ InteractionResponseMessage
+              { interactionResponseMessageTTS = Nothing
+              , interactionResponseMessageContent =
+                  Just $ expr <> "= **" <> res <> "**"
+              , interactionResponseMessageEmbeds = Nothing
+              , interactionResponseMessageAllowedMentions = Nothing
+              , interactionResponseMessageFlags = Nothing
+              , interactionResponseMessageComponents =
+                  Just [ ActionRowButtons buttons ]
+              , interactionResponseMessageAttachments = Nothing
+              }
 
-stats
-  :: Int
-  -> Text
-  -> InteractionId
-  -> InteractionToken
-  -> ApplicationId
-  -> DiscordHandler ()
-stats res expr interactionId interactionToken interactionApplicationId = do
+stats :: Int -> Text -> Response ()
+stats res expr = do
   roll <- case parseRoll expr of
     Left _ -> die "failed to  reparse in stats"
     Right r -> pure r
   genReport roll res >>= \case
     Right report ->
-      rc_ $
-        CreateInteractionResponse
-          interactionId
-          interactionToken
-          $ interactionResponseBasic report
+      respond $ interactionResponseBasic report
     Left cont -> do
-      rc_ $
-        CreateInteractionResponse
-          interactionId
-          interactionToken
-          InteractionResponseDeferChannelMessage
+      void $ respond InteractionResponseDeferChannelMessage
       liftIO cont >>= \case
         Just report ->
-          rc_ $
-            CreateFollowupInteractionMessage
-              interactionApplicationId
-              interactionToken
-              $ interactionResponseMessageBasic report
+          followUp $ interactionResponseMessageBasic report
         Nothing ->
-          rc_ $
-            CreateFollowupInteractionMessage
-              interactionApplicationId
-              interactionToken
-              $ interactionResponseMessageBasic "sorry timed out"
+          followUp $ interactionResponseMessageBasic "sorry timed out"
 
-rc_ :: (Request (r a), FromJSON a) => r a -> DiscordHandler ()
-rc_ = void . rc
+simpleButton :: Text -> Text -> Button
+simpleButton buttonId label =
+  Button
+    { buttonCustomId = buttonId
+    , buttonDisabled = False
+    , buttonStyle = ButtonStylePrimary
+    , buttonLabel = Just label
+    , buttonEmoji = Nothing
+    }
 
-rc :: (Request (r a), FromJSON a) => r a -> DiscordHandler a
-rc a =
-  restCall a >>= \case
-    Right r -> pure r
-    Left err -> die $ show err
+genButton :: MonadIO m => RefTable -> Text -> Text -> m Button
+genButton rt label msg = do
+  msg' <- maybeMakeRef rt msg
+  pure $ simpleButton msg' label
+
+simpleCommand :: Text -> Text -> Maybe Options -> CreateApplicationCommand
+simpleCommand name desc opts=
+  CreateApplicationCommandChatInput
+      { createName = name
+      , createLocalizedName = Nothing
+      , createDescription = desc
+      , createLocalizedDescription = Nothing
+      , createOptions = opts
+      , createDefaultMemberPermissions = Nothing
+      , createDMPermission = Nothing
+      }
+
+exprOption :: OptionValue
+exprOption =
+  OptionValueString
+    { optionValueName = "expr"
+    , optionValueLocalizedName = Nothing
+    , optionValueDescription = "the dice expression to be rolled"
+    , optionValueLocalizedDescription = Nothing
+    , optionValueRequired = True
+    , optionValueStringChoices = Left False
+    , optionValueStringMinLen = Just 1
+    , optionValueStringMaxLen = Nothing
+    }

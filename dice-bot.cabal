@@ -107,6 +107,7 @@ common shared
   other-modules:
     Dist
     Parser
+    Response
     RefTable
     RollM
     Sample

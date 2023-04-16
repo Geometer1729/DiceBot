@@ -47,7 +47,8 @@ instance Applicative Dist where
 
 instance Monad Dist where
   {-# INLINE (>>=) #-}
-  x >>= f = msimple $ Dist $ do
+  x >>= f = msimple $
+    Dist $ do
       (x', p1) <- unDist x
       (y, p2) <- unDist $ f x'
       pure (y, p1 * p2)

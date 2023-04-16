@@ -1,19 +1,17 @@
 module Main where
 
+import Control.Arrow (right)
+import Data.Text qualified as T
 import Discord
 import Discord.Interactions
 import Discord.Internal.Rest.ApplicationCommands
 import Discord.Types
-
-import Data.Text qualified as T
-
-import Control.Arrow (right)
 import Flow ((.>))
 import Parser (parseRoll)
 import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
+import Response (Response, followUp, mkInteractionHandler, rc, rc_, respond)
 import Sample (rollIO)
 import Stats (genReport)
-import Response (Response, respond, followUp, mkInteractionHandler, rc, rc_)
 
 main :: IO ()
 main = do
@@ -34,35 +32,36 @@ main = do
 
 coms :: [CreateApplicationCommand]
 coms =
-  [ simpleCommand "r" "roll some dice" $ Just $
-      OptionsValues
-        [ exprOption
-        , OptionValueInteger
-            { optionValueName = "times"
-            , optionValueLocalizedName = Nothing
-            , optionValueDescription = "time number of times to roll it"
-            , optionValueLocalizedDescription = Nothing
-            , optionValueRequired = False
-            , optionValueIntegerChoices = Left False
-            , optionValueIntegerMinVal = Just 1
-            , optionValueIntegerMaxVal = Nothing
-            }
-        ]
+  [ simpleCommand "r" "roll some dice" $
+      Just $
+        OptionsValues
+          [ exprOption
+          , OptionValueInteger
+              { optionValueName = "times"
+              , optionValueLocalizedName = Nothing
+              , optionValueDescription = "time number of times to roll it"
+              , optionValueLocalizedDescription = Nothing
+              , optionValueRequired = False
+              , optionValueIntegerChoices = Left False
+              , optionValueIntegerMinVal = Just 1
+              , optionValueIntegerMaxVal = Nothing
+              }
+          ]
   , simpleCommand "stats" "get stats info" $
-    Just $
-      OptionsValues
-        [ exprOption
-        , OptionValueInteger
-            { optionValueName = "result"
-            , optionValueLocalizedName = Nothing
-            , optionValueDescription = "the result"
-            , optionValueLocalizedDescription = Nothing
-            , optionValueRequired = True
-            , optionValueIntegerChoices = Left False
-            , optionValueIntegerMinVal = Nothing
-            , optionValueIntegerMaxVal = Nothing
-            }
-        ]
+      Just $
+        OptionsValues
+          [ exprOption
+          , OptionValueInteger
+              { optionValueName = "result"
+              , optionValueLocalizedName = Nothing
+              , optionValueDescription = "the result"
+              , optionValueLocalizedDescription = Nothing
+              , optionValueRequired = True
+              , optionValueIntegerChoices = Left False
+              , optionValueIntegerMinVal = Nothing
+              , optionValueIntegerMaxVal = Nothing
+              }
+          ]
   , simpleCommand "help" "send help text" Nothing
   ]
 
@@ -71,10 +70,10 @@ handler rt = \case
   Ready _ _ _ _ _ _ (PartialApplication i _) -> do
     putStrLn "ready"
     oldComs <- rc $ GetGlobalApplicationCommands i
-    let removedComs
-          = Prelude.filter
-          (\c -> applicationCommandName c `notElem` (createName <$> coms))
-          oldComs
+    let removedComs =
+          Prelude.filter
+            (\c -> applicationCommandName c `notElem` (createName <$> coms))
+            oldComs
     forM_ removedComs $ rc_ . DeleteGlobalApplicationCommand i . applicationCommandId
     forM_ coms $ rc . CreateGlobalApplicationCommand i
     putStrLn "commands registered"
@@ -82,62 +81,69 @@ handler rt = \case
     mkInteractionHandler interaction $
       case interaction of
         ( InteractionApplicationCommand
-              { applicationCommandData =
-                ApplicationCommandDataChatInput
-                  { applicationCommandDataName = name
-                  , optionsData = options
-                  }
-              }
+            { applicationCommandData =
+              ApplicationCommandDataChatInput
+                { applicationCommandDataName = name
+                , optionsData = options
+                }
+            }
           ) ->
             case name of
-               "help" ->
-                 respond
-                    $ interactionResponseBasic
-                    $ "/help prints this\n"
-                    <> "/r rolls an expression\n"
-                    <> helpText
-               "stats" ->
-                 case options of
-                   (Just (OptionsDataValues
-                     [ OptionDataValueString _ (Right expr)
-                     , OptionDataValueInteger _ (Right result)
-                     ]
-                     )) -> stats (fromInteger result) expr
-                   _ -> putStrLn $ "Bad options for stats:" <> show options
-               "r" ->
-                 case options of
-                   (Just (OptionsDataValues
-                     [ OptionDataValueString _ (Right expr)]
-                     )) -> rollExpr rt Nothing expr
-                   (Just (OptionsDataValues
-                     [ OptionDataValueString _ (Right expr)
-                     , OptionDataValueInteger _ (Right times)
-                     ]
-                     )) -> rollExpr rt (Just $ fromInteger times) expr
-                   _ -> putStrLn $ "Bad options for r: " <> show options
-               com -> putStrLn $ "bad command: " <> show com
-        ( InteractionComponent{componentData = ButtonData button }
-          ) -> maybeUnRef rt button >>= \case
-              (T.stripPrefix "roll:" -> Just expr) -> do
-                rollExpr rt Nothing expr
-              (T.stripPrefix "rollt:" -> Just rest) -> do
-                let (times', T.tail -> expr) = T.breakOn ":" rest
-                case readMaybe $ toString times' of
-                  Just times -> do
-                    rollExpr rt (Just times) expr
-                  Nothing -> die "failed to parse times in rollt"
-              (T.stripPrefix "logs:" -> Just logs) -> do
-                respond $ interactionResponseBasic logs
-              (T.stripPrefix "stats:" -> Just rest) -> do
-                let (res', T.tail -> expr) = T.breakOn "," rest
-                res <- case readMaybe $ toString res' of
-                  Nothing -> die "failed to read res in stats"
-                  Just res -> pure res
-                stats res expr
-              (T.stripPrefix "err:" -> Just msg) ->
-                respond $ interactionResponseBasic
-                      msg
-              _ -> die $ toString $ "unexpected button data:" <> button
+              "help" ->
+                respond $
+                  interactionResponseBasic $
+                    "/help prints this\n"
+                      <> "/r rolls an expression\n"
+                      <> helpText
+              "stats" ->
+                case options of
+                  ( Just
+                      ( OptionsDataValues
+                          [ OptionDataValueString _ (Right expr)
+                            , OptionDataValueInteger _ (Right result)
+                            ]
+                        )
+                    ) -> stats (fromInteger result) expr
+                  _ -> putStrLn $ "Bad options for stats:" <> show options
+              "r" ->
+                case options of
+                  ( Just
+                      ( OptionsDataValues
+                          [OptionDataValueString _ (Right expr)]
+                        )
+                    ) -> rollExpr rt Nothing expr
+                  ( Just
+                      ( OptionsDataValues
+                          [ OptionDataValueString _ (Right expr)
+                            , OptionDataValueInteger _ (Right times)
+                            ]
+                        )
+                    ) -> rollExpr rt (Just $ fromInteger times) expr
+                  _ -> putStrLn $ "Bad options for r: " <> show options
+              com -> putStrLn $ "bad command: " <> show com
+        (InteractionComponent {componentData = ButtonData button}) ->
+          maybeUnRef rt button >>= \case
+            (T.stripPrefix "roll:" -> Just expr) -> do
+              rollExpr rt Nothing expr
+            (T.stripPrefix "rollt:" -> Just rest) -> do
+              let (times', T.tail -> expr) = T.breakOn ":" rest
+              case readMaybe $ toString times' of
+                Just times -> do
+                  rollExpr rt (Just times) expr
+                Nothing -> die "failed to parse times in rollt"
+            (T.stripPrefix "logs:" -> Just logs) -> do
+              respond $ interactionResponseBasic logs
+            (T.stripPrefix "stats:" -> Just rest) -> do
+              let (res', T.tail -> expr) = T.breakOn "," rest
+              res <- case readMaybe $ toString res' of
+                Nothing -> die "failed to read res in stats"
+                Just res -> pure res
+              stats res expr
+            (T.stripPrefix "err:" -> Just msg) ->
+              respond $
+                interactionResponseBasic
+                  msg
+            _ -> die $ toString $ "unexpected button data:" <> button
         i -> do
           putStrLn "unhandled interaction"
           print i
@@ -167,8 +173,9 @@ rollExpr :: RefTable -> Maybe Int -> Text -> Response ()
 rollExpr rt times expr =
   case parseRoll expr of
     Left _ ->
-      respond $ interactionResponseBasic
-        $ "Failed to parse: " <> expr <> "\n\n" <> helpText
+      respond $
+        interactionResponseBasic $
+          "Failed to parse: " <> expr <> "\n\n" <> helpText
     Right roll -> do
       (res' :: Either Text (Text, Text)) <- case times of
         Nothing -> rollIO roll <&> right (first (show @Text))
@@ -181,24 +188,30 @@ rollExpr rt times expr =
                 case times of
                   Nothing -> "roll:"
                   Just t -> "rollt:" <> show t <> ":"
-          buttons <- mapM (uncurry $ genButton rt)
-            [("Reroll",rollPrefix <> expr)
-            ,("How?","logs:" <> (if logs == "" then "It was a constant." else logs))
-            ,("Stats","stats:" <> res <> "," <> expr)
-            ]
-          respond
-            $ InteractionResponseChannelMessage
-            $ InteractionResponseMessage
-              { interactionResponseMessageTTS = Nothing
-              , interactionResponseMessageContent =
-                  Just $ expr <> "= **" <> res <> "**"
-              , interactionResponseMessageEmbeds = Nothing
-              , interactionResponseMessageAllowedMentions = Nothing
-              , interactionResponseMessageFlags = Nothing
-              , interactionResponseMessageComponents =
-                  Just [ ActionRowButtons buttons ]
-              , interactionResponseMessageAttachments = Nothing
-              }
+          buttons <-
+            mapM
+              (uncurry $ genButton rt)
+              [ ("Reroll", rollPrefix <> expr)
+              ,
+                ( "How?"
+                , "logs:"
+                    <> (if logs == "" then "It was a constant." else logs)
+                )
+              , ("Stats", "stats:" <> res <> "," <> expr)
+              ]
+          respond $
+            InteractionResponseChannelMessage $
+              InteractionResponseMessage
+                { interactionResponseMessageTTS = Nothing
+                , interactionResponseMessageContent =
+                    Just $ expr <> "= **" <> res <> "**"
+                , interactionResponseMessageEmbeds = Nothing
+                , interactionResponseMessageAllowedMentions = Nothing
+                , interactionResponseMessageFlags = Nothing
+                , interactionResponseMessageComponents =
+                    Just [ActionRowButtons buttons]
+                , interactionResponseMessageAttachments = Nothing
+                }
 
 stats :: Int -> Text -> Response ()
 stats res expr = do
@@ -232,16 +245,16 @@ genButton rt label msg = do
   pure $ simpleButton msg' label
 
 simpleCommand :: Text -> Text -> Maybe Options -> CreateApplicationCommand
-simpleCommand name desc opts=
+simpleCommand name desc opts =
   CreateApplicationCommandChatInput
-      { createName = name
-      , createLocalizedName = Nothing
-      , createDescription = desc
-      , createLocalizedDescription = Nothing
-      , createOptions = opts
-      , createDefaultMemberPermissions = Nothing
-      , createDMPermission = Nothing
-      }
+    { createName = name
+    , createLocalizedName = Nothing
+    , createDescription = desc
+    , createLocalizedDescription = Nothing
+    , createOptions = opts
+    , createDefaultMemberPermissions = Nothing
+    , createDMPermission = Nothing
+    }
 
 exprOption :: OptionValue
 exprOption =

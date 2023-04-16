@@ -38,11 +38,11 @@ common shared
     relude
 
   default-extensions:
-    DeriveAnyClass
     NoStarIsType
     BangPatterns
     ConstraintKinds
     DataKinds
+    DeriveAnyClass
     DeriveAnyClass
     DeriveDataTypeable
     DeriveFoldable
@@ -107,8 +107,8 @@ common shared
   other-modules:
     Dist
     Parser
-    Response
     RefTable
+    Response
     RollM
     Sample
     Stats

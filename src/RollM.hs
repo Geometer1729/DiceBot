@@ -29,7 +29,7 @@ rollDice = cataM $ \case
   SubF a b -> pure $ a - b
   SOSF a b -> do
     log $ show a <> "d10" <> "= "
-    a `times'` (\r -> if r >= b then 1 else 0) $ rollSmpl 10 RerollOpts{best=Nothing,under=Nothing}
+    a `times'` (\r -> if r >= b then 1 else 0) $ rollSmpl 10 RerollOpts {best = Nothing, under = Nothing}
   DF o a b -> do
     log $ case a of
       1 -> "d" <> show b <> show o <> "= "

@@ -1,10 +1,10 @@
 import Criterion.Main
 
+import Control.Monad (liftM2)
 import Data.Maybe (fromJust)
 import Dist (Dist, expected, range, times)
 import Parser (parseRoll)
 import Stats (getExpected)
-import Control.Monad (liftM2)
 
 benchExp :: Text -> Benchmark
 benchExp w = bench (toString w) $ nf (fmap getExpected) (parseRoll w)

@@ -45,14 +45,16 @@ genReport ro res = liftIO $ do
     threadDelay 60_000_000
     putMVar reportVar Nothing
   takeMVar reportVar >>= \case
-    Nothing -> pure $ Left $
-      takeMVar reportVar >>= \case
-        Just r -> do
-          killThread waitPid
-          pure $ Just r
-        Nothing -> do
-          killThread computePid
-          pure Nothing
+    Nothing ->
+      pure $
+        Left $
+          takeMVar reportVar >>= \case
+            Just r -> do
+              killThread waitPid
+              pure $ Just r
+            Nothing -> do
+              killThread computePid
+              pure Nothing
     Just r -> do
       killThread waitPid
       pure $ Right r

@@ -1,0 +1,64 @@
+--module SosCost where
+
+--import Data.List (maximum)
+--import Relude.Extra (safeToEnum)
+--
+--data Power
+--  = Low
+--  | Medium
+--  | High
+--  | Epic
+--  | Awesome
+--  deriving stock (Enum,Bounded)
+--
+--untable :: Ord a => a -> [a] -> Int
+--untable amt table = length $ takeWhile (<= amt) table
+--
+--powerLevel :: Build -> Power
+--powerLevel Build{race,attrs} = let
+--  pcps = [pcpCost race,pcpCost attrs]
+--  byMax =  untable (maximum pcps) [5,6,7,8,10]
+--  byTotal = untable (sum pcps) [14,18,22,26,30]
+--    in fromMaybe (error "power above enum")
+--      $ safeToEnum
+--      $ max byMax byTotal - 1
+--
+--class PCPCost a where
+--  pcpCost :: a -> Int
+--
+--instance PCPCost Race where
+--  pcpCost = \case
+--    Human -> 1
+--    Goblin -> 1
+--    Dwarf -> 2
+--
+--instance PCPCost Attrs where
+--  pcpCost Attrs{str,agi,end,hlt,wil,wit,int,per} =
+--    let
+--      total = sum [str,agi,end,hlt,wil,wit,int,per]
+--        in untable total [22,23,24,27,31,35,40,45,50,56]
+--
+--instance PCPCost Skills where
+--  pcpCost _ = 1
+--
+--instance PCPCost [Item] where
+--  pcpCost gear = let
+--    totalCost = sum $ cost <$> gear
+--      in untable totalCost
+--        [ 10*sp
+--        , 5*gp
+--        , 15*gp
+--        , 25*gp
+--        , 40*gp
+--        , 80*gp
+--        , 150*gp
+--        , 300*gp
+--        , 800*gp
+--        , 1500*gp
+--        ]
+--
+--instance PCPCost Boons where
+--  pcpCost (Boons bs) = let
+--    score = sum $ fst <$> bs
+--      in untable score
+--        [-15,-10,-5,0,5,10,15,20,25,30]

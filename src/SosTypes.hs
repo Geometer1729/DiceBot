@@ -2,21 +2,21 @@
 
 module SosTypes where
 
-import Lens.Micro.TH(makeLenses)
+import Lens.Micro.TH(makeLensesWith,camelCaseFields)
 
 data CoreAttrs =
   CoreAttrs -- must be between 0 and 8
-    { _strPoints :: Int
-    , _agiPoints :: Int
-    , _endPoints :: Int
-    , _hltPoints :: Int
-    , _wilPoints :: Int
-    , _witPoints :: Int
-    , _intPoints :: Int
-    , _perPoints :: Int
+    { coreAttrsStr :: Int
+    , coreAttrsAgi :: Int
+    , coreAttrsEnd :: Int
+    , coreAttrsHlt :: Int
+    , coreAttrsWil :: Int
+    , coreAttrsWit :: Int
+    , coreAttrsInt :: Int
+    , coreAttrsPer :: Int
     }
 
-makeLenses ''CoreAttrs
+makeLensesWith camelCaseFields ''CoreAttrs
 
 data Race
   = Human
@@ -57,40 +57,43 @@ data Weapon where
 data Armor where
 
 data Attrs = Attrs
-  { str :: Int
-  , agi :: Int
-  , end :: Int
-  , hlt :: Int
-  , wil :: Int
-  , wit :: Int
-  , int :: Int
-  , per :: Int
-  , adr :: Int
-  , mob :: Int
-  , car :: Int
-  , cha :: Int
-  , tou :: Int
-  , grt :: Int
-  , attrPoints :: Int
-  , freePoints :: Int
-  , pcpCost :: Int
+  { attrsStr :: Int
+  , attrsAgi :: Int
+  , attrsEnd :: Int
+  , attrsHlt :: Int
+  , attrsWil :: Int
+  , attrsWit :: Int
+  , attrsInt :: Int
+  , attrsPer :: Int
+  , attrsAdr :: Int
+  , attrsMob :: Int
+  , attrsCar :: Int
+  , attrsCha :: Int
+  , attrsTou :: Int
+  , attrsGrt :: Int
+  , attrsAttrPoints :: Int
+  , attrsFreePoints :: Int
+  , attrsPcpCost :: Int
   }
+
+makeLensesWith camelCaseFields ''Attrs
 
 
 data BuildIn = BuildIn
-  { _bRace :: Race
-  , _bAttrs :: CoreAttrs
-  , _bSkills :: Skills
-  , _bGear :: [Item]
-  , _bProfs :: Profs
-  , _bBoons :: Boons
+  { buildInRace :: Race
+  , buildInAttrs :: CoreAttrs
+  , buildInSkills :: Skills
+  , buildInGear :: [Item]
+  , buildInProfs :: Profs
+  , buildInBoons :: Boons
   }
 
-makeLenses ''BuildIn
+makeLensesWith camelCaseFields ''BuildIn
 
 data FullChar = FullChar
-  { _race :: Race
-  , _attrs :: Attrs
-  , _gear :: [Item]
+  { fullCharRace :: Race
+  , fullCharAttrs :: Attrs
+  , fullCharGear :: [Item]
   }
 
+makeLensesWith camelCaseFields ''FullChar

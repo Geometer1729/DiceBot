@@ -121,6 +121,7 @@ library dice-lib
     Stats
     Util
     SosTypes
+    SosBuild
     Components
 
 executable dice-bot

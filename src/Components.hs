@@ -1,40 +1,35 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Components where
 
-import Prelude hiding((<|>))
 import Graphics.Vty
 import Lens.Micro
 
-runComponent :: Vty -> Component a -> IO ()
-runComponent vty component = do
-  update vty (picForImage $ render True component)
+runComponent :: Vty -> (i -> o) -> i -> Component i o -> IO ()
+runComponent vty builder inp component = do
+  update vty (picForImage $ render True component (builder inp))
   e <- nextEvent vty
   case e of
     EvKey (KChar 'q') _ -> pass
-    _ -> runComponent vty (fromMaybe component $ handle e component)
---
--- TODO should I just combine these classes?
+    _ -> case handle component e of
+            Right new -> runComponent vty builder (upd new inp) new
+            _ -> runComponent vty builder inp component
 
-class Handler a where
-  handle :: Event -> a -> Maybe a
-  -- Nothing indicates moving focus up the tree
+class Interface c i o | c -> i , c -> o where
+  handle :: c -> Event -> Either InterfaceAction c
+  render :: Bool -> c -> o -> Image
+  upd :: c -> i -> i
 
-class Render a where
-  render :: Bool -> a -> Image
+data InterfaceAction = FocusBack | Pass
 
-class Models c v | c -> v where
-  upd :: c -> v -> v
+data Component i o where
+  Component :: Interface c i o => c -> Component i o
 
-data Component b where
-  Component :: (Handler a,Render a,Models a b) => a -> Component b
-
-instance Handler (Component a) where
-  handle e (Component c) = Component <$> handle e c
-
-instance Render (Component a) where
+instance Interface (Component i o) i o where
+  handle (Component c) e = Component <$> handle c e
   render b (Component c) = render b c
-
-instance Models (Component a) a where
   upd (Component c) = upd c
+    -- sets coerce is the trivial setter for the component newtype
 
 data InputInt =
   InputInt
@@ -43,81 +38,78 @@ data InputInt =
     , value :: Int
     }
 
-instance Render InputInt where
-  render active InputInt{value} =
+instance Interface InputInt Int () where
+  handle c@InputInt{maxVal,minVal,value} = \case
+    EvKey (KChar 'a') _ ->
+      pure c{value=maybe id min maxVal $ value + 1}
+    EvKey (KChar 'x') _ ->
+      pure c{value=maybe id max minVal $ value - 1}
+    EvKey (KChar 'h') _ -> Left FocusBack
+    _ -> Left Pass
+
+  render active InputInt{value} () =
     string (boldIf active) (show value)
 
-instance Handler InputInt where
-  handle = \case
-    EvKey (KChar 'a') _ -> \c@InputInt{maxVal,value}
-      -> Just c{value=maybe id min maxVal $ value + 1}
-    EvKey (KChar 'x') _ -> \c@InputInt{minVal,value}
-      -> Just c{value=maybe id max minVal $ value - 1}
-    EvKey (KChar 'h') _ -> const Nothing
-    _ -> pure
+  upd InputInt{value} _ = value
 
-instance Models InputInt Int where
-  upd i = const $ value i
-
-data Entry b = forall a.
+data Entry i o = forall ic oc.
   Entry
-    { component :: Component a
+    { component :: Component ic oc
     , name :: String
-    , entryLens :: Lens' b a
+    , entryLens :: Lens' i ic
+    , displayLens :: Lens' o oc
     , inline :: Bool
     , focusDown :: Bool
     }
 
-instance Render (Entry b) where
-  render active Entry{name,component,inline,focusDown}
-    = (if inline then horizJoin else vertJoin)
-      (string (boldIf active) (name <> ":"))
-      (render (active && focusDown) component)
-
-instance Handler (Entry b) where
-  handle event Entry{..} =
-    handle event component <&> \c ->
+instance Interface (Entry i o) i o where
+  handle Entry{..} event =
+    handle component event <&> \c ->
       Entry {component = c,..}
     -- GHC doesn't like record updates here
 
-instance Models (Entry b) b where
+  render active Entry{name,component,inline,focusDown,displayLens} o
+    = (if inline then horizJoin else vertJoin)
+      (string (boldIf active) (name <> ":"))
+      (render (active && focusDown) component (o ^. displayLens))
+
   upd Entry{component,entryLens} =
     over entryLens (upd component)
 
-data Menu a =
+data Menu i o =
   Menu
-    { items :: [Entry a]
+    { items :: [Entry i o]
     , focused :: Int
     }
 
-instance Models (Menu a) a where
-  upd Menu{items} m = flipfoldl' upd m items
+instance Interface (Menu i o) i o where
+  handle m@Menu{items,focused} event = let
+    item = (fromMaybe (error "bad menu index") $ items !!? focused)
+    defferToItem =
+      case handle item event of
+          -- AFAICT the existential types prevent cleaning this up with lenses
+          Left FocusBack -> pure m{items = items & ix focused .~ item{focusDown = False}}
+          Left Pass -> Left Pass
+          Right item' -> pure m{items= items & ix focused .~ item'}
+    in if focusDown item
+      then defferToItem
+      else case event of
+        EvKey (KChar 'j') _ -> pure m{focused = min (length items -1) (focused + 1)}
+        EvKey (KChar 'k') _ -> pure m{focused = max 0 (focused -1)}
+        EvKey (KChar 'l') _ -> pure m{items = items & ix focused .~ item{focusDown = True}}
+        EvKey (KChar 'h') _ -> Left FocusBack
+        _ -> if inline item then defferToItem else Left Pass
 
-instance Render (Menu a) where
-  render active Menu{items,focused}
+  render active Menu{items,focused} o
     = mconcat
       (zip [0..] items <&>
         (\(ind,item) ->
           pad 2 0 0 0 $ -- indent
-          render (active && focused == ind) item
+          render (active && focused == ind) item o
         )
       )
 
-instance Handler (Menu a) where
-  handle event m@Menu{items,focused} = let
-    item = (fromMaybe (error "bad menu index") $ items !!? focused)
-    defferToItem =
-      case handle event item of
-            Nothing -> Just m{items = items & ix focused .~ item{focusDown = False}}
-            Just item' -> Just m{items= items & ix focused .~ item'}
-    in if focusDown item
-      then defferToItem
-      else case event of
-        EvKey (KChar 'j') _ -> Just m{focused = min (length items -1) (focused + 1)}
-        EvKey (KChar 'k') _ -> Just m{focused = max 0 (focused -1)}
-        EvKey (KChar 'l') _ -> Just m{items = items & ix focused .~ item{focusDown = True}}
-        EvKey (KChar 'h') _ -> Nothing
-        _ -> if inline item then defferToItem else Just m
+  upd Menu{items} m = flipfoldl' upd m items
 
 data Selector a =
   Selector
@@ -130,19 +122,17 @@ selected Selector{ind,ents} =
   fromMaybe (error "invalid selector index")
     $ ents !!? ind
 
-instance Models (Selector a) a where
-  upd = const . snd . selected
-
-instance Render (Selector a) where
-  render active = string (boldIf active) . fst . selected
-
-instance Handler (Selector a) where
-  handle event s@Selector{ind,ents} =
+instance Interface (Selector i) i () where
+  handle s@Selector{ind,ents} event =
     case event of
-      EvKey (KChar 'j') _ -> Just s{ind = min (length ents -1) (ind + 1)}
-      EvKey (KChar 'k') _ -> Just s{ind = max 0 (ind -1)}
-      EvKey (KChar 'h') _ -> Nothing
-      _ -> Just s
+      EvKey (KChar 'j') _ -> pure s{ind = min (length ents -1) (ind + 1)}
+      EvKey (KChar 'k') _ -> pure s{ind = max 0 (ind -1)}
+      EvKey (KChar 'h') _ -> Left FocusBack
+      _ -> Left Pass
+
+  render active = flip $ const $ string (boldIf active) . fst . selected
+
+  upd = const . snd . selected
 
 simpleSelector :: (Enum a,Bounded a,Show a) => Selector a
 simpleSelector = Selector
@@ -150,6 +140,20 @@ simpleSelector = Selector
   , ents = [(show a,a) | a <- universe ]
   }
 
--- utils
+data Display a = Display
+
+instance Show a => Interface (Display a) () a where
+  handle _ event =
+    case event of
+      EvKey (KChar 'h') _ -> Left FocusBack
+      _ -> Left Pass
+
+  render active Display o = string (boldIf active) (show o)
+
+  upd _ _ = ()
+
+-- Utils
+
 boldIf :: Bool -> Attr
 boldIf cond = if cond then defAttr `withStyle` bold else defAttr
+

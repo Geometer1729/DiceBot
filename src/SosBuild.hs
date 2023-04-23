@@ -1,39 +1,58 @@
 module SosBuild where
 
 import SosTypes
+import Lens.Micro ((^.))
+
+buildChar :: BuildIn -> FullChar
+buildChar b =
+  FullChar
+    { fullCharRace = b ^. race
+    , fullCharAttrs = buildAttrs (b ^. race) (b ^. attrs)
+    , fullCharGear = []
+    }
+
+defChar :: BuildIn
+defChar = BuildIn
+  { buildInRace = Human
+  , buildInAttrs = CoreAttrs 0 0 0 0 0 0 0 0
+  , buildInSkills = Skills
+  , buildInGear = []
+  , buildInProfs = Profs
+  , buildInBoons = Boons []
+  }
 
 buildAttrs :: Race -> CoreAttrs -> Attrs
-buildAttrs race CoreAttrs{..} = let
-   whenDwarf n = if race == Dwarf then n else 0
-   whenGob n = if race == Goblin then n else 0
-   str = 1 + _strPoints - whenGob 2
-   agi = 1 + _agiPoints + whenGob 1
-   end = 1 + _endPoints + whenDwarf 2
-   hlt = 1 + _hltPoints + whenDwarf 1
-   wil = 1 + _wilPoints
-   wit = 1 + _witPoints
-   int = 1 + _intPoints
-   per = 1 + _perPoints + whenGob 1
-   adr = (agi + wit) `div` 2
-   mob = (str + agi + end) `div` 2 - whenDwarf 2
-   car = str + end
-   cha = (wil + per + wit) `div` 2
-   tou = 4 + whenDwarf 1
-   grt = wil `div` 2
-   attrSpent =
+buildAttrs r c = let
+   whenDwarf n = if r == Dwarf then n else 0
+   whenGob n = if r == Goblin then n else 0
+   attrsStr = 1 + c^.str - whenGob 2
+   attrsAgi = 1 + c^.agi + whenGob 1
+   attrsEnd = 1 + c^.end + whenDwarf 2
+   attrsHlt = 1 + c^.hlt + whenDwarf 1
+   attrsWil = 1 + c^.wil
+   attrsWit = 1 + c^.wit
+   attrsInt = 1 + c^.int
+   attrsPer = 1 + c^.per + whenGob 1
+   attrsAdr = (c^.agi + c^.wit) `div` 2
+   attrsMob = (c^.wit + c^.agi + c^.end) `div` 2 - whenDwarf 2
+   attrsCar = c^.str + c^.end
+   attrsCha = (c^.wil + c^.per + c^.wit) `div` 2
+   attrsTou = 4 + whenDwarf 1
+   attrsGrt = c^.wil `div` 2
+   attrsAttrSpent =
      sum
-     [_strPoints
-     ,_agiPoints
-     ,_endPoints
-     ,_hltPoints
-     ,_wilPoints
-     ,_witPoints
-     ,_intPoints
-     ,_perPoints
+     [c^.str
+     ,c^.agi
+     ,c^.end
+     ,c^.hlt
+     ,c^.wil
+     ,c^.wit
+     ,c^.int
+     ,c^.per
      ]
    levels = [22,23,24,27,31,35,40,45,50,56]
-   (pcpCost,attrPoints) = fromTable levels attrSpent
-   freePoints = attrPoints - attrSpent
+   (attrsPcpCost,attrsAttrPoints) = fromTable levels attrsAttrSpent
+   attrsFreePoints = attrsAttrPoints - attrsAttrSpent
    in Attrs{..}
 
 fromTable :: Ord a => [a] -> a -> (Int,a)

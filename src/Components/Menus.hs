@@ -3,7 +3,7 @@ module Components.Menus where
 import Components.Core
 import Lens.Micro
 import Graphics.Vty
-import Data.Default
+import Data.List (findIndex)
 
 data Entry i o = forall ic oc.
   Entry
@@ -13,6 +13,7 @@ data Entry i o = forall ic oc.
     , displayLens :: Lens' o oc
     , inline :: Bool
     , focusDown :: Bool
+    , selectable :: Bool
     }
 
 instance Interface (Entry i o) i o where
@@ -47,8 +48,12 @@ instance Interface (Menu i o) i o where
     in if focusDown item
       then defferToItem
       else case event of
-        EvKey (KChar 'j') _ -> pure m{focused = min (length items -1) (focused + 1)}
-        EvKey (KChar 'k') _ -> pure m{focused = max 0 (focused -1)}
+        EvKey (KChar 'j') _ -> let
+          focused' =  focused + maybe 0 (+1) (findIndex selectable $ drop (focused+1) items)
+          in pure m{focused = focused'}
+        EvKey (KChar 'k') _ -> let
+          focused' = focused - maybe 0 (+1) (findIndex selectable $ reverse $ take focused items)
+          in pure m{focused =focused'}
         EvKey (KChar 'l') _ -> pure m{items = items & ix focused .~ item{focusDown = True}}
         EvKey (KChar 'h') _ -> Left FocusBack
         _ -> if inline item then defferToItem else Left Pass

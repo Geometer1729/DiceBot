@@ -13,6 +13,7 @@ mainComp = Component $
     , displayLens = id
     , inline = False
     , focusDown = True
+    , selectable = True
     , component = Component $
         Menu
           { items =
@@ -23,6 +24,7 @@ mainComp = Component $
               , displayLens = lens (const ()) const
               , inline = True
               , focusDown = False
+              , selectable = True
               }
             , Entry
               { name = "Attributes"
@@ -31,6 +33,7 @@ mainComp = Component $
               , displayLens = attrs
               , inline = False
               , focusDown = False
+              , selectable = True
               }
             ]
           , focused = 0

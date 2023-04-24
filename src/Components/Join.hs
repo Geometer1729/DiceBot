@@ -2,12 +2,12 @@ module Components.Join where
 
 import Components.Core
 import Graphics.Vty
+import Data.List (foldl1)
 
 data Join i o
   = Join JT (Component i o) (Component i o)
 
 data JT = LR | RL | UD | DU
-
 
 instance Interface (Join i o) i o where
   handle (Join t f s) e =
@@ -30,3 +30,6 @@ instance Interface (Join i o) i o where
 
   upd (Join _ f s) = upd s . upd f
 
+row :: [Component i o] -> Component i o
+row [] = error "empty row"
+row xs = foldl1 (fmap Component . Join LR) xs

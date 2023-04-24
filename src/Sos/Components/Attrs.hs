@@ -10,21 +10,21 @@ attributes = Component $
     { items =
       [ mkAttrDisplay "PCP cost" pcpCost
       , mkAttrDisplay "Points left" freePoints
-      , mkAttrBoth "str points" str str
-      , mkAttrBoth "agi points" agi agi
-      , mkAttrBoth "end points" end end
-      , mkAttrBoth "hlt points" hlt hlt
-      , mkAttrBoth "wil points" wil wil
-      , mkAttrBoth "wit points" wit wit
-      , mkAttrBoth "int points" int int
-      , mkAttrBoth "per points" per per
+      , mkAttrBoth "str" str str
+      , mkAttrBoth "agi" agi agi
+      , mkAttrBoth "end" end end
+      , mkAttrBoth "hlt" hlt hlt
+      , mkAttrBoth "wil" wil wil
+      , mkAttrBoth "wit" wit wit
+      , mkAttrBoth "int" int int
+      , mkAttrBoth "per" per per
       , mkAttrDisplay "adr" adr
       , mkAttrDisplay "mob" mob
       , mkAttrDisplay "car" car
       , mkAttrDisplay "tou" tou
       , mkAttrDisplay "grt" grt
       ]
-      , focused = 0
+      , focused = 2 -- This should really be automatic from the items
     }
 
 mkAttrBoth :: String -> Lens' CoreAttrs Int -> Lens' Attrs Int -> Entry CoreAttrs Attrs
@@ -32,13 +32,12 @@ mkAttrBoth name entryLens displayLens =
   Entry
     { focusDown = False
     , inline = True
-    , component = Component $
-      Join LR
-        (Component $ InputInt @Int (Just 0) (Just 8) 0)
-        (Component $ Join LR
-          (Component $ Constant @Int @Int " -> ")
-          (Component $ Display @Int @Int)
-        )
+    , selectable = True
+    , component = row
+        [Component $ InputInt @Int (Just 0) (Just 8) 0
+        ,Component $ Constant @Int @Int " -> "
+        ,Component $ Display @Int @Int
+        ]
     , ..
     }
 
@@ -49,16 +48,7 @@ mkAttrDisplay name displayLens =
     , inline = True
     , component = Component $ Display @() @Int
     , entryLens = lens (const ()) const
-    , ..
-    }
-
-mkAttrEnt :: String -> Lens' CoreAttrs Int -> Entry CoreAttrs Attrs
-mkAttrEnt name entryLens =
-  Entry
-    { focusDown = False
-    , inline = True
-    , component = Component $ InputInt @() (Just 0) (Just 8) 0
-    , displayLens = lens (const ()) const
+    , selectable = False
     , ..
     }
 

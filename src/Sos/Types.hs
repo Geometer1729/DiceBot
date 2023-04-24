@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module SosTypes where
+module Sos.Types where
 
 import Lens.Micro.TH(makeLensesWith,camelCaseFields)
 

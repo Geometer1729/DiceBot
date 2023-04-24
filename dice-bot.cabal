@@ -83,6 +83,7 @@ common shared
     TypeOperators
     ViewPatterns
     FunctionalDependencies
+    ScopedTypeVariables
 
   build-depends:
     , attoparsec
@@ -105,12 +106,14 @@ common shared
     , vty
     , microlens
     , microlens-th
+    , data-default
 
+  default-language: Haskell2010
   -- TODO is there a better way to specify versions for unused packages
-  hs-source-dirs:     src
 
 library dice-lib
   import: shared
+  hs-source-dirs: src
   exposed-modules:
     Dist
     Parser
@@ -120,21 +123,27 @@ library dice-lib
     Sample
     Stats
     Util
-    SosTypes
-    SosBuild
     Components
+    Components.Basic
+    Components.Core
+    Components.Join
+    Components.Menus
+    Sos.Build
+    Sos.Components
+    Sos.Components.Attrs
+    Sos.Types
 
 executable dice-bot
   import:           shared
+  hs-source-dirs:   app
   main-is:          Main.hs
-  default-language: Haskell2010
   build-depends:
     dice-lib
 
 executable sos-editor
   import:           shared
-  main-is:          SosEd.hs
-  default-language: Haskell2010
+  hs-source-dirs:   sos
+  main-is:          Main.hs
   ghc-options:
     -threaded
   build-depends:

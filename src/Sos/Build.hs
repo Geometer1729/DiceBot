@@ -1,6 +1,6 @@
-module SosBuild where
+module Sos.Build where
 
-import SosTypes
+import Sos.Types
 import Lens.Micro ((^.))
 
 buildChar :: BuildIn -> FullChar

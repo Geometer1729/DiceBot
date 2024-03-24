@@ -6,7 +6,6 @@ copyright:          2022 Brian Kuhns
 maintainer:         16kuhnb@gmail.com
 author:             Brian Kuhns
 category:           Web
-
 synopsis:           A dice bot for discord
 
 -- A longer description of the package.
@@ -34,6 +33,7 @@ common shared
     BangPatterns
     ConstraintKinds
     DataKinds
+    DeriveAnyClass
     DeriveDataTypeable
     DeriveFoldable
     DeriveFunctor
@@ -56,12 +56,14 @@ common shared
     LambdaCase
     MultiParamTypeClasses
     MultiWayIf
+    NamedFieldPuns
     NoStarIsType
     NumericUnderscores
     OverloadedStrings
     PolyKinds
     PostfixOperators
     RankNTypes
+    RecordWildCards
     ScopedTypeVariables
     StandaloneDeriving
     StandaloneKindSignatures
@@ -70,35 +72,32 @@ common shared
     TypeFamilies
     TypeOperators
     ViewPatterns
-    NamedFieldPuns
-    RecordWildCards
-    DeriveAnyClass
 
   build-depends:
     , aeson
     , async
-    , base          >=4.13.0.0 && <4.18.0.0.0
+    , attoparsec
+    , base               >=4.13.0.0 && <4.18.0.0.0
+    , containers
+    , criterion
     , data-default
     , directory
+    , discord-haskell
     , filepath
+    , flow
+    , formatn
+    , hashable
     , mtl
     , optics-core
     , profunctors
-    , relude        >=1.0
-    , shower
-    , time
-    , with-utf8
-    , flow
-    , discord-haskell
-    , attoparsec
-    , recursion-schemes
-    , hashable
-    , containers
-    , stm
     , random
-    , criterion
-    , formatn
+    , recursion-schemes
+    , relude             >=1.0
+    , shower
+    , stm
+    , time
     , transformers
+    , with-utf8
 
   hs-source-dirs:     src
   other-modules:
@@ -110,6 +109,7 @@ common shared
     Sample
     Stats
     Util
+
   default-language:   Haskell2010
 
 executable dice-bot

@@ -239,7 +239,7 @@ simpleButton buttonId label =
     , buttonEmoji = Nothing
     }
 
-genButton :: MonadIO m => RefTable -> Text -> Text -> m Button
+genButton :: (MonadIO m) => RefTable -> Text -> Text -> m Button
 genButton rt label msg = do
   msg' <- maybeMakeRef rt msg
   pure $ simpleButton msg' label

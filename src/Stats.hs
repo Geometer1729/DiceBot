@@ -33,7 +33,7 @@ instance RollM DistM where
   log _ = pass
   throw _ = DistM $ hoistMaybe Nothing
 
-genReport :: MonadIO m => Roll -> Int -> m (Either (IO (Maybe Text)) Text)
+genReport :: (MonadIO m) => Roll -> Int -> m (Either (IO (Maybe Text)) Text)
 genReport ro res = liftIO $ do
   reportVar <- newEmptyMVar
   computePid <- forkIO $ do
@@ -63,7 +63,9 @@ report :: Roll -> Int -> Text
 report r res =
   case validate (rollDice r) of
     Left (p, !d) ->
-      "This expresion has a " <> showChance p <> " chance of division by 0 or invalid dice\n"
+      "This expresion has a "
+        <> showChance p
+        <> " chance of division by 0 or invalid dice\n"
         <> "given a result is valid:\n"
         <> reportDist d res
     Right !dist -> reportDist dist res
@@ -80,7 +82,8 @@ reportDist !dist res =
       cb = chanceOf (>= res) dist
       cl = chanceOf (<= res) dist
       delta = fromIntegral res - e
-   in "expected: " <> showAmt e
+   in "expected: "
+        <> showAmt e
         <> "\ngot: "
         <> show res
         <> (if delta >= 0 then " (+" else " (")
@@ -95,7 +98,7 @@ reportDist !dist res =
             LT -> "\nchance of getting a roll this high: " <> showChance cb
             EQ -> "\nmedian roll" -- should be unreachable but median would be correct here
 
-validate :: Ord a => DistM a -> Either (Double, Dist a) (Dist a)
+validate :: (Ord a) => DistM a -> Either (Double, Dist a) (Dist a)
 validate dm =
   let d' = dm & runDistM .> runMaybeT
       l = d' & Dist.toList .> map joinPair

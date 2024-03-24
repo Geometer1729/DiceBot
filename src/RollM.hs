@@ -3,7 +3,7 @@ module RollM (rollDice, RollM (..)) where
 import Data.Functor.Foldable (Base, Recursive, project)
 import Parser (Dir (..), RerollBest (..), RerollOpts (..), RerollUnder (..), Roll, RollF (..))
 
-class Monad m => RollM m where
+class (Monad m) => RollM m where
   range :: Int -> Int -> m Int
   log :: Text -> m ()
   throw :: Text -> m a
@@ -13,14 +13,14 @@ class Monad m => RollM m where
   times' :: Int -> (Int -> Int) -> m Int -> m Int
   times' n f m = times n (f <$> m)
 
-d :: RollM r => Int -> r Int
+d :: (RollM r) => Int -> r Int
 d = range 1
 
 -- | A monadic catamorphism
 cataM :: (Recursive t, Traversable (Base t), Monad m) => (Base t a -> m a) -> (t -> m a)
 cataM phi = c where c = phi <=< (traverse c . project)
 
-rollDice :: RollM r => Roll -> r Int
+rollDice :: (RollM r) => Roll -> r Int
 rollDice = cataM $ \case
   CF n -> pure n
   AddF a b -> pure $ a + b
@@ -36,7 +36,7 @@ rollDice = cataM $ \case
       _ -> show a <> "d" <> show b <> show o <> "= "
     a `times` rollSmpl b o
 
-rollSmpl :: forall r. RollM r => Int -> RerollOpts -> r Int
+rollSmpl :: forall r. (RollM r) => Int -> RerollOpts -> r Int
 rollSmpl n RerollOpts {..} = withBest
   where
     withBest :: r Int

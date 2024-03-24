@@ -17,7 +17,7 @@ newtype Sample a = Sample {runSample :: ExceptT Text (WriterT Text (State StdGen
     , MonadWriter Text
     )
 
-rollIO :: MonadIO m => Roll -> m (Either Text (Int, Text))
+rollIO :: (MonadIO m) => Roll -> m (Either Text (Int, Text))
 rollIO =
   rollDice
     .> runSample

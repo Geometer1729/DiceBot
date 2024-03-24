@@ -46,7 +46,7 @@ data RerollOpts = RerollOpts
 
 instance Show RerollOpts where
   show RerollOpts {best, under} =
-    case fold (show <$> best) <> fold (show <$> under) of
+    case foldMap show best <> foldMap show under of
       "" -> ""
       opts -> " reroll " <> opts
 
@@ -125,14 +125,15 @@ rerollBest =
   choice
     [ (Just <$>) $
         signed decimal
-          <**> ( skipSpace >> RerollBest
-                  <$> ( (string "keep best" $> Best)
-                          <|> (string "keep worst" $> Worst)
-                          <|> (string "keep" $> Best)
-                          <|> (string "kb" $> Best)
-                          <|> (string "kw" $> Worst)
-                          <|> (string "k" $> Best)
-                      )
+          <**> ( skipSpace
+                  >> RerollBest
+                    <$> ( (string "keep best" $> Best)
+                            <|> (string "keep worst" $> Worst)
+                            <|> (string "keep" $> Best)
+                            <|> (string "kb" $> Best)
+                            <|> (string "kw" $> Worst)
+                            <|> (string "k" $> Best)
+                        )
                     <* skipSpace
                )
           <*> signed decimal

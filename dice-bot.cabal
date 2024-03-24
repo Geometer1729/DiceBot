@@ -2,15 +2,12 @@ cabal-version:      2.4
 name:               haskell-template
 version:            0.1.0.0
 license:            MIT
-copyright:          2022 Sridhar Ratnakumar
-maintainer:         srid@srid.ca
-author:             Sridhar Ratnakumar
+copyright:          2022 Brian Kuhns
+maintainer:         16kuhnb@gmail.com
+author:             Brian Kuhns
 category:           Web
-homepage:           https://srid.ca/haskell-template
 
--- TODO: Before hackage release.
--- A short (one-line) description of the package.
-synopsis:           A template for Haskell projects using Nix
+synopsis:           A dice bot for discord
 
 -- A longer description of the package.
 -- description:
@@ -73,6 +70,9 @@ common shared
     TypeFamilies
     TypeOperators
     ViewPatterns
+    NamedFieldPuns
+    RecordWildCards
+    DeriveAnyClass
 
   build-depends:
     , aeson
@@ -88,10 +88,45 @@ common shared
     , shower
     , time
     , with-utf8
+    , flow
+    , discord-haskell
+    , attoparsec
+    , recursion-schemes
+    , hashable
+    , containers
+    , stm
+    , random
+    , criterion
+    , formatn
+    , transformers
 
   hs-source-dirs:     src
+  other-modules:
+    Dist
+    Parser
+    RefTable
+    Response
+    RollM
+    Sample
+    Stats
+    Util
   default-language:   Haskell2010
 
-executable haskell-template
-  import:  shared
-  main-is: Main.hs
+executable dice-bot
+  import:           shared
+  main-is:          Main.hs
+  default-language: Haskell2010
+
+test-suite tests
+  import:         shared
+  main-is:        Spec.hs
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: tests
+  build-depends:  hspec
+
+benchmark bench
+  import:         shared
+  main-is:        Bench.hs
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: bench
+  build-depends:  hspec

@@ -1,5 +1,5 @@
 {
-  description = "srid/haskell-template: Nix template for Haskell projects";
+  description = "A dice rolling bot for discord";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     systems.url = "github:nix-systems/default";
@@ -29,7 +29,7 @@
             root = ./.;
             fileset = lib.fileset.unions [
               ./src
-              ./haskell-template.cabal
+              ./dice-bot.cabal
             ];
           });
 
@@ -94,12 +94,12 @@
         };
 
         # Default package & app.
-        packages.default = self'.packages.haskell-template;
-        apps.default = self'.apps.haskell-template;
+        packages.default = self'.packages.dice-bot;
+        apps.default = self'.apps.dice-bot;
 
         # Default shell.
         devShells.default = pkgs.mkShell {
-          name = "haskell-template";
+          name = "dice-bot";
           meta.description = "Haskell development environment";
           # See https://community.flake.parts/haskell-flake/devshell#composing-devshells
           inputsFrom = [

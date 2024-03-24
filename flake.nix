@@ -29,6 +29,8 @@
             root = ./.;
             fileset = lib.fileset.unions [
               ./src
+              ./tests
+              ./bench
               ./dice-bot.cabal
             ];
           });

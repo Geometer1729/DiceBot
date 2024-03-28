@@ -8,6 +8,9 @@
     treefmt-nix.url = "github:numtide/treefmt-nix";
     treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
     fourmolu-nix.url = "github:jedimahdi/fourmolu-nix";
+
+    singletons.url = "github:goldfirere/singletons";
+    singletons.flake = false;
   };
 
   outputs = inputs:
@@ -46,6 +49,8 @@
             aeson.source = "1.5.0.0" # Hackage version
             shower.source = inputs.shower; # Flake input
             */
+            singletons-base.source = "3.2";
+            #singleton-base.broken = false ;
           };
 
           # Add your package overrides here
@@ -58,6 +63,9 @@
               check = false;
             };
             */
+            # Some checks fail?
+            singletons-base.broken = false;
+            singletons-base.check = false;
           };
 
           # Development shell configuration
@@ -92,7 +100,7 @@
           respectful = true;
           haddock-style = "multi-line";
           newlines-between-decls = 1;
-          extensions = [ "ImportQualifiedPost" ];
+          extensions = [ "ImportQualifiedPost" "TemplateHaskell" ];
         };
 
         # Default package & app.

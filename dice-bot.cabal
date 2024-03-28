@@ -90,11 +90,15 @@ common shared
     , hashable
     , mtl
     , optics-core
+    , parsec
     , profunctors
     , random
     , recursion-schemes
     , relude             >=1.0
     , shower
+    , singletons
+    , singletons-base
+    , singletons-th
     , stm
     , time
     , transformers
@@ -103,6 +107,7 @@ common shared
   default-language:   Haskell2010
   hs-source-dirs:     src
   other-modules:
+    DicePrelude
     Dist
     Parser
     RefTable
@@ -110,6 +115,8 @@ common shared
     RollM
     Sample
     Stats
+    TypeCheck
+    TypeCheckerCore
     Util
 
 executable dice-bot

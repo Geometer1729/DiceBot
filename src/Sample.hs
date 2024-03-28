@@ -3,9 +3,9 @@ module Sample (rollIO) where
 import Control.Monad.Trans.Except (throwE)
 import Control.Monad.Writer (MonadWriter, WriterT, runWriterT, tell)
 import Flow ((.>))
-import Parser (Roll)
 import RollM (RollM (..), rollDice)
 import System.Random (StdGen, getStdRandom, randomR)
+import TypeCheck (Roll)
 import Util (joinPair)
 
 newtype Sample a = Sample {runSample :: ExceptT Text (WriterT Text (State StdGen)) a}

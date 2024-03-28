@@ -5,8 +5,6 @@ module Stats (
   getExpected,
 ) where
 
-import Parser
-
 import Data.Text qualified as T
 import Dist qualified
 
@@ -16,6 +14,7 @@ import Data.FormatN (commaSF, fixed, percent)
 import Dist (Dist, chanceOf, expected, range)
 import Flow ((.>))
 import RollM (RollM (..), rollDice)
+import TypeCheck (Roll)
 import Util (joinPair)
 
 newtype DistM a = DistM {runDistM :: MaybeT Dist a}

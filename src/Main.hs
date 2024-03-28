@@ -1,5 +1,3 @@
-module Main where
-
 import Control.Arrow (right)
 import Data.Text qualified as T
 import Discord
@@ -7,11 +5,11 @@ import Discord.Interactions
 import Discord.Internal.Rest.ApplicationCommands
 import Discord.Types
 import Flow ((.>))
-import Parser (parseRoll)
 import RefTable (RefTable, maybeMakeRef, maybeUnRef, newRefTable)
 import Response (Response, followUp, mkInteractionHandler, rc, rc_, respond)
 import Sample (rollIO)
 import Stats (genReport)
+import TypeCheck (parseAndType)
 
 main :: IO ()
 main = do
@@ -149,6 +147,7 @@ handler rt = \case
           print i
   _ -> pass
 
+-- TODO help text is now wrong
 helpText :: Text
 helpText =
   "expressions can be:\n"
@@ -171,11 +170,11 @@ helpText =
 
 rollExpr :: RefTable -> Maybe Int -> Text -> Response ()
 rollExpr rt times expr =
-  case parseRoll expr of
-    Left _ ->
+  case parseAndType expr of
+    Left err ->
       respond $
-        interactionResponseBasic $
-          "Failed to parse: " <> expr <> "\n\n" <> helpText
+        interactionResponseBasic err
+    -- TODO add context to this probably?
     Right roll -> do
       (res' :: Either Text (Text, Text)) <- case times of
         Nothing -> rollIO roll <&> right (first (show @Text))
@@ -215,7 +214,7 @@ rollExpr rt times expr =
 
 stats :: Int -> Text -> Response ()
 stats res expr = do
-  roll <- case parseRoll expr of
+  roll <- case parseAndType expr of
     Left _ -> die "failed to  reparse in stats"
     Right r -> pure r
   genReport roll res >>= \case

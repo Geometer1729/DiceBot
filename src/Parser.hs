@@ -1,152 +1,92 @@
-{-# LANGUAGE TemplateHaskell #-}
+module Parser (Expr (..), parseExpr) where
 
-module Parser (
-  Roll (..),
-  RollF (..),
-  RerollOpts (..),
-  RerollBest (..),
-  Dir (..),
-  RerollUnder (..),
-  parseRoll,
-  -- debug
-  roll,
-  reroll,
-  rerollUnder,
-  rerollBest,
-) where
+import Data.List (foldl)
 
-import Data.Attoparsec.Text (
-  Parser,
-  choice,
-  decimal,
-  endOfInput,
-  parseOnly,
-  signed,
-  skipSpace,
-  string,
- )
-import Data.Functor.Foldable.TH (makeBaseFunctor)
-import Text.Show qualified as Show
+import Text.Parsec (ParsecT, eof, parse)
+import Text.Parsec.Combinator (choice)
+import Text.Parsec.Expr (Assoc (..), buildExpressionParser)
+import Text.Parsec.Language (haskellDef)
+import Text.Parsec.Token (GenTokenParser (..), TokenParser, makeTokenParser)
 
-data Roll
-  = D RerollOpts Roll Roll
-  | SOS Roll Roll
-  | C Int
-  | Add Roll Roll
-  | Mul Roll Roll
-  | Sub Roll Roll
-  | Div Roll Roll
+import Text.Parsec qualified as Parsec
+import Text.Parsec.Expr qualified as Parsec
+
+tokens :: TokenParser t
+tokens = makeTokenParser haskellDef
+
+data Expr
+  = IntLit Integer
+  | Var Text
+  | Dice Expr Expr
+  | Paren Expr
+  | App Expr Expr
+  | Infix Text Expr Expr
+  | IfTE Expr Expr Expr
+  | Lambda Text Expr
   deriving stock (Show, Eq, Ord)
 
-data RerollOpts = RerollOpts
-  { best :: Maybe RerollBest
-  , under :: Maybe RerollUnder
-  }
-  deriving stock (Eq, Ord)
+type Parser = forall t. ParsecT String t Identity Expr
 
-instance Show RerollOpts where
-  show RerollOpts {best, under} =
-    case foldMap show best <> foldMap show under of
-      "" -> ""
-      opts -> " reroll " <> opts
+parseExpr :: String -> Either Text Expr
+parseExpr input =
+  parse parser "command" input
+    & \case
+      Left err -> Left $ show err
+      Right res -> Right res
 
-data RerollBest = RerollBest {dir :: Dir, amt :: Int, keep :: Int}
-  deriving stock (Eq, Ord)
+parser :: Parser
+parser = expr <* eof
 
-data Dir = Best | Worst
-  deriving stock (Eq, Ord)
+expr :: Parser
+expr = specials
 
-instance Show RerollBest where
-  show = \case
-    RerollBest Best a b -> show a <> " keep best " <> show b
-    RerollBest Worst a b -> show a <> " keep worst " <> show b
-
-data RerollUnder
-  = Under Int
-  | OnceUnder Int
-  deriving stock (Eq, Ord)
-
-instance Show RerollUnder where
-  show = \case
-    Under n -> "up to " <> show n
-    OnceUnder n -> "once up to " <> show n
-
-makeBaseFunctor ''Roll
-
-parseRoll :: Text -> Either String Roll
-parseRoll = parseOnly roll
-
-roll :: Parser Roll
-roll = expr2 <* endOfInput
-
-parens :: Parser Roll
-parens = string "(" *> expr2 <* string ")"
-
-constant :: Parser Roll
-constant =
+specials :: Parser
+specials =
   choice
-    [ parens
-    , C <$> signed decimal
+    [ IfTE
+        <$> (reserved "if" *> infixes)
+        <*> (reserved "then" *> infixes)
+        <*> (reserved "else" *> infixes)
+    , Lambda
+        <$> (reservedOp "\\" *> (toText <$> identifier))
+        <*> (reservedOp "->" *> infixes)
+    , infixes
     ]
+  where
+    TokenParser {reserved, identifier, reservedOp} = tokens
 
-dice :: Parser Roll
-dice =
-  choice
-    [ (fmap flip . flip) D <$> (constant <|> pure (C 1)) <*> (string "d" *> dice) <*> reroll
-    , SOS <$> (string "sos" *> constant) <*> (string "t" *> constant <|> pure (C 7))
-    , constant
-    ]
+infixes :: Parser
+infixes = buildExpressionParser table apps
+  where
+    table =
+      [ binary <$> ["++"]
+      , binary <$> ["&&", "||"]
+      , binary <$> ["<", "<=", "==", "/=", ">", ">="]
+      , binary <$> ["^", "**"]
+      , binary <$> ["*", "/"]
+      , binary <$> ["+", "-"]
+      ]
+    binary name = Parsec.Infix (reservedOp name $> Infix (toText name)) AssocLeft
+    TokenParser {reservedOp} = tokens
 
-expr1 :: Parser Roll
-expr1 =
-  choice
-    [ Mul <$> dice <*> (string "*" *> expr1)
-    , Div <$> dice <*> (string "/" *> expr1)
-    , dice
-    ]
+apps :: Parser
+apps = do
+  e <- simple
+  rest <- many simple
+  case rest of
+    [] -> pure e
+    es -> pure $ foldl App e es
 
-expr2 :: Parser Roll
-expr2 =
+simple :: Parser
+simple =
   choice
-    [ Add <$> expr1 <*> (string "+" *> expr2)
-    , Sub <$> expr1 <*> (string "-" *> expr2)
-    , expr1
+    [ parens expr
+    , Parsec.try $ Dice (IntLit 1) <$> (Parsec.char 'd' *> intOrParen)
+    , Parsec.try $ Dice <$> intOrParen <*> (Parsec.char 'd' *> intOrParen)
+    , intLit
+    , Var . toText <$> identifier
     ]
-
-reroll :: Parser RerollOpts
-reroll =
-  choice
-    [ (skipSpace *> (string "reroll" <|> string "r") *> skipSpace) *> (RerollOpts <$> rerollBest <*> rerollUnder)
-    , pure $ RerollOpts Nothing Nothing
-    ]
-
-rerollBest :: Parser (Maybe RerollBest)
-rerollBest =
-  choice
-    [ (Just <$>) $
-        signed decimal
-          <**> ( skipSpace
-                  >> RerollBest
-                    <$> ( (string "keep best" $> Best)
-                            <|> (string "keep worst" $> Worst)
-                            <|> (string "keep" $> Best)
-                            <|> (string "kb" $> Best)
-                            <|> (string "kw" $> Worst)
-                            <|> (string "k" $> Best)
-                        )
-                    <* skipSpace
-               )
-          <*> signed decimal
-    , pure Nothing
-    ]
-
-rerollUnder :: Parser (Maybe RerollUnder)
-rerollUnder =
-  choice
-    [ (Just <$>) $
-        ( (skipSpace *> (string "once up to" <|> string "ou") *> skipSpace $> OnceUnder)
-            <|> (skipSpace *> (string "up to" <|> string "u") *> skipSpace $> Under)
-        )
-          <*> signed decimal
-    , pure Nothing
-    ]
+  where
+    intOrParen = parens expr <|> intLit
+    intLit = IntLit <$> natural
+    TokenParser {natural, identifier, parens} = tokens

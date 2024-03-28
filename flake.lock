@@ -88,8 +88,25 @@
         "fourmolu-nix": "fourmolu-nix",
         "haskell-flake": "haskell-flake",
         "nixpkgs": "nixpkgs",
+        "singletons": "singletons",
         "systems": "systems",
         "treefmt-nix": "treefmt-nix"
+      }
+    },
+    "singletons": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1697198608,
+        "narHash": "sha256-kOVJX95vZkN81BMsOhFRXqqShEWGJw8gjCa+aUjaDgw=",
+        "owner": "goldfirere",
+        "repo": "singletons",
+        "rev": "2a604585d637d52256c31e1d4eee0c4d7150b7ef",
+        "type": "github"
+      },
+      "original": {
+        "owner": "goldfirere",
+        "repo": "singletons",
+        "type": "github"
       }
     },
     "systems": {

@@ -60,8 +60,8 @@ infixes = buildExpressionParser table apps
   where
     table =
       [ binary <$> ["++"]
-      , binary <$> ["&&", "||"]
       , binary <$> ["<", "<=", "==", "/=", ">", ">="]
+      , binary <$> ["&&", "||"]
       , binary <$> ["^", "**"]
       , binary <$> ["*", "/"]
       , binary <$> ["+", "-"]

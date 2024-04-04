@@ -1,6 +1,6 @@
 module RollM (rollDice, RollM (..)) where
 
-import TypeCheckerCore (ExprT (..), HsOf)
+import TypeCheckerCore (ExprT (..), HsOf,DType(DVar), HRefable (..))
 
 class (Monad m) => RollM m where
   range :: Int -> Int -> m Int
@@ -15,9 +15,9 @@ class (Monad m) => RollM m where
 d :: (RollM r) => Int -> r Int
 d = range 1
 
-rollDice :: (RollM r, HsOf d ~ t) => ExprT d -> r t
+rollDice :: forall r d t. (RollM r, HsOf d ~ t) => ExprT d -> r t
 rollDice = \case
-  Lit l -> pure l
+  Hask (HRef _ l) -> pure l
   App f x -> rollDice f <*> rollDice x
   Dice a b -> do
     a' <- rollDice a

@@ -7,27 +7,10 @@ import DicePrelude (prelude)
 import TypeCheckerCore
 
 import Data.Map qualified as M
-import Data.Singletons (
-  SingInstance (SingInstance),
-  demote,
-  fromSing,
-  sing,
-  singInstance,
- )
 import Data.Singletons.Decide (decideEquality, type (:~:) (Refl))
+import Prelude.Singletons
 
 type Roll = ExprT DInt
-
-testEval :: Res -> String
-testEval (Res (e :: ExprT d)) =
-  case sing @d of
-    SDInt -> show $ eval e
-    _ -> "Test eval requires an int at top level"
-  where
-    eval :: ExprT (t :: DType) -> HsOf t
-    eval (Lit l) = l
-    eval (App f x) = eval f $ eval x
-    eval (Dice _ _) = error "Test eval doesn't roll dice"
 
 parseAndType :: Text -> Either Text Roll
 parseAndType expr = do
@@ -42,18 +25,8 @@ typeTopLevel e = case evalStateT (typeExpr e) 0 of
     bad -> Left $ "Top level dice expresions must be of type Int your expresion was of type " <> show (fromSing bad)
 
 typeExpr :: Expr -> StateT Natural (Either Text) Res
-typeExpr (P.IntLit n) = lift $ Right $ Res @DInt (Lit $ fromInteger n)
-typeExpr (P.App f x) = do
-  Res (fe :: ExprT ft) <- typeExpr f
-  Res (xe :: ExprT xt) <- typeExpr x
-  case sing @ft of
-    SDFun @xt' @yt xt yt -> case decideEquality xt (sing @xt) of
-      Nothing -> lift $ Left $ "Couldn't match " <> show (demote @xt) <> " with " <> show (fromSing xt)
-      Just (Refl :: xt' :~: xt) ->
-        -- Case brings SingI yt into scope
-        case singInstance yt of
-          SingInstance -> pure $ Res $ App fe xe
-    _ -> lift $ Left "Applied argument to non-function. too many arguments?"
+typeExpr (P.IntLit n) = lift $ Right $ Res @DInt (Hask $ let go = HRef (const go) (fromInteger n) in go)
+  -- TODO there will probably be a helper for this so use it here
 typeExpr (P.Paren e) = typeExpr e
 typeExpr (P.Infix name e1 e2) = typeExpr $ P.App (P.App (P.Var name) e1) e2
 typeExpr (P.IfTE e1 e2 e3) = typeExpr $ P.App (P.App (P.App (P.Var "ifte") e1) e2) e3
@@ -69,3 +42,28 @@ typeExpr (P.Dice l r) = do
     (SDInt, _) -> lift $ Left "number of faces must have type Int"
     (_, _) -> lift $ Left "number of dice must have type Int"
 typeExpr (P.Lambda _ _) = lift $ Left "Lambda functions are not implemented yet"
+typeExpr (P.App f x) = do
+  Res (fe :: ExprT ft) <- typeExpr f
+  Res (xe :: ExprT xt) <- typeExpr x
+  case sing @ft of
+    SDFun @xt' @yt xt' yt -> withSingI yt $
+      case decideEquality xt' (sing @xt) of
+        Just (Refl :: xt' :~: xt) ->
+          pure $ Res $ App fe xe
+        Nothing -> case sUnify xt' (sing @xt) of
+          SNothing ->
+            lift $ Left $ "Couldn't match type "
+              <> show (demote @xt) <> " with "
+              <> show (fromSing xt')
+          SJust (refs :: Sing refs) -> withSingI xt' $ withSingI refs $ let
+            fe' :: ExprT (DFun (Refine refs xt') (Refine refs yt)) =
+              case funMaps @refs @xt' @yt of
+                FunMaps -> refineExpr @refs fe
+            xe' :: ExprT (Refine refs xt) = refineExpr @refs xe
+            in case decideEquality (sRefine refs xt') (sRefine refs (sing @xt)) of
+              Nothing -> lift $ Left "Type checker error, unify produced invalid refinements"
+              Just Refl -> case singInstance (sRefine refs yt) of
+                SingInstance -> pure $ Res $ App fe' xe'
+    -- TODO This is actually wrong, it should suport unifications from vars to functions
+    _ -> lift $ Left "Applied argument to non-function. too many arguments?"
+

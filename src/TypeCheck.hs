@@ -9,6 +9,7 @@ import TypeCheckerCore
 import Data.Map qualified as M
 import Data.Singletons.Decide (decideEquality, type (:~:) (Refl))
 import Prelude.Singletons
+import Cast (cast)
 
 type Roll = ExprT DInt
 
@@ -18,22 +19,20 @@ parseAndType expr = do
   typeTopLevel r
 
 typeTopLevel :: Expr -> Either Text (ExprT DInt)
-typeTopLevel e = case evalStateT (typeExpr e) 0 of
+typeTopLevel e = case evalStateT (typeExpr e) (ScopeNat $ sing @0) of
   Left err -> Left err
   Right (Res (t :: ExprT d)) -> case sing @d of
     SDInt -> Right t
-    bad -> Left $ "Top level dice expresions must be of type Int your expresion was of type " <> pShow (fromSing bad)
+    bad -> Left $ "Top level dice expresions must be of type `Int` your expresion was of type `" <> pShow (fromSing bad) <> "`"
 
-typeExpr :: Expr -> StateT Natural (Either Text) Res
-typeExpr (P.IntLit n) = lift $ Right $ Res @DInt (Hask $ let go = HRef (const go) (fromInteger n) in go)
-  -- TODO there will probably be a helper for this so use it here
+data ScopeNat where
+  ScopeNat :: forall (n :: Natural) . Sing n -> ScopeNat
+
+typeExpr :: Expr -> StateT ScopeNat (Either Text) Res
+typeExpr (P.IntLit n) = pure $ cast $ fromInteger @Int n
 typeExpr (P.Paren e) = typeExpr e
 typeExpr (P.Infix name e1 e2) = typeExpr $ P.App (P.App (P.Var name) e1) e2
 typeExpr (P.IfTE e1 e2 e3) = typeExpr $ P.App (P.App (P.App (P.Var "ifte") e1) e2) e3
-typeExpr (P.Var name) =
-  case M.lookup name prelude of
-    Just res -> pure res
-    Nothing -> lift $ Left $ "Not in scope " <> name
 typeExpr (P.Dice l r) = do
   Res (lt :: ExprT lt) <- typeExpr l
   Res (rt :: ExprT rt) <- typeExpr r
@@ -41,6 +40,19 @@ typeExpr (P.Dice l r) = do
     (SDInt, SDInt) -> pure $ Res $ Dice lt rt
     (SDInt, _) -> lift $ Left "number of faces must have type Int"
     (_, _) -> lift $ Left "number of dice must have type Int"
+typeExpr (P.Var name) =
+  case M.lookup name prelude of
+    Just (Res (res :: ExprT d)) -> do
+      ScopeNat start <- get
+      let new = sScope (sing @d)
+      put $ ScopeNat (start %+ new)
+      let refs = sReScopeRefs start
+          res' = case refs of
+            (_ :: Sing refs ) -> withSingI refs $ refineExpr @refs res
+      case sRefine refs (sing @d) of
+        (s :: Sing t') -> withSingI s $ pure $ Res @t' res'
+
+    Nothing -> lift $ Left $ "Not in scope " <> name
 typeExpr (P.Lambda _ _) = lift $ Left "Lambda functions are not implemented yet"
 typeExpr (P.App f x) = do
   Res (fe :: ExprT ft) <- typeExpr f
@@ -61,7 +73,11 @@ typeExpr (P.App f x) = do
                 FunMaps -> refineExpr @refs fe
             xe' :: ExprT (Refine refs xt) = refineExpr @refs xe
             in case decideEquality (sRefine refs xt') (sRefine refs (sing @xt)) of
-              Nothing -> lift $ Left "Type checker error, unify produced invalid refinements"
+              Nothing -> lift $ Left $
+                "Type checker error, unify produced invalid refinements\n"
+                <> "function: " <> pShow (demote @ft) <> "\n"
+                <> "arg: " <> pShow (demote @xt) <> "\n"
+                <> "refs: " <> show (demote @refs) <> "\n"
               Just Refl -> case singInstance (sRefine refs yt) of
                 SingInstance -> pure $ Res $ App fe' xe'
     -- TODO This is actually wrong, it should suport unifications from vars to functions

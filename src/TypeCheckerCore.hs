@@ -33,32 +33,56 @@ $(singletons
 
      -- This clumsy inplmentation required for singletons to derive properly
      unify :: DType -> DType -> Maybe [(Natural,DType)]
-     unify DInt DInt = Just []
-     unify DInt DBool = Nothing
-     unify DInt (DList _) = Nothing
-     unify DInt (DFun _ _) = Nothing
-     unify DInt (DVar n) = Just [(n,DInt)]
 
-     unify DBool DInt = Nothing
-     unify DBool DBool = Just []
-     unify DBool (DList _) = Nothing
-     unify DBool (DFun _ _) = Nothing
-     unify DBool (DVar n) = Just [(n,DBool)]
-
-     unify (DFun _ _) DInt = Nothing
-     unify (DFun _ _) DBool = Nothing
      unify (DFun _ _) (DList _) = Nothing
+     unify (DFun _ _) DBool = Nothing
+     unify (DFun _ _) DInt = Nothing
+
+     unify DBool (DFun _ _) = Nothing
+     unify DBool (DList _) = Nothing
+     unify DBool DInt = Nothing
+
+     unify DInt (DFun _ _) = Nothing
+     unify DInt (DList _) = Nothing
+     unify DInt DBool = Nothing
+
+     unify (DList _) (DFun _ _) = Nothing
+     unify (DList _) DBool = Nothing
+     unify (DList _) DInt = Nothing
+
+     unify DInt DInt = Just []
+     unify DBool DBool = Just []
+
+     unify DInt (DVar n) = Just [(n,DInt)]
+     unify (DVar n) DInt = Just [(n,DInt)]
+
+     unify DBool (DVar n) = Just [(n,DBool)]
+     unify (DVar n) DBool = Just [(n,DBool)]
+
+     unify (DFun l r) (DVar n) = Just [(n,DFun l r)]
+     unify (DVar n) (DFun l r) = Just [(n,DFun l r)]
+
+     unify (DList l) (DVar n) = Just [(n,DList l)]
+     unify (DVar n) (DList l) = Just [(n,DList l)]
+
+     unify (DVar n) (DVar m) = Just [(max n m,DVar (min n m))]
+
+     unify (DList a) (DList b) = unify a b
+
      unify (DFun ll lr) (DFun rl rr) = do
         ls <- unify ll rl
         rs <- unify (refine ls lr) (refine ls rr)
         pure $ ls ++ rs
-     unify (DFun l r) (DVar n) = Just [(n,DFun l r)]
 
-     unify (DVar n) (DVar m) = Just [(max n m,DVar (min n m))]
-     unify (DVar n) DInt = Just [(n,DInt)]
-     unify (DVar n) DBool = Just [(n,DBool)]
-     unify (DVar n) (DList l) = Just [(n,DList l)]
-     unify (DVar n) (DFun a b) = Just [(n,DFun a b)]
+     scope :: DType -> Natural
+     scope DInt = 0
+     scope DBool = 0
+     scope (DVar n) = n+1
+     scope (DList l) = scope l
+     scope (DFun a b) = max (scope a) (scope b)
+
+     reScopeRefs :: Natural -> [(Natural,DType)]
+     reScopeRefs n = map (\i -> (i,DVar (i+n))) (if n == 0 then [] else [0..n-1])
      |]
  )
 
@@ -113,16 +137,12 @@ funMaps = case sing @refs of
     case funMaps @refs' @(Ref n t a) @(Ref n t b) of
       FunMaps -> FunMaps
 
--- TODO this doesn't need to be a class anymore
-class SingI refs => FinList (refs :: [(Natural,DType)]) where
-  refineExpr :: forall a. ExprT a -> ExprT (Refine refs a)
-
-instance SingI refs => FinList refs where
-  refineExpr = case sing @refs of
-    SNil -> id
-    SCons (STuple2 (n :: Sing n) (t :: Sing t)) (refs' :: Sing refs') ->
-      withSingI n $ withSingI t $ withSingI refs' $
-        refineExpr @refs' . refOne @n @t
+refineExpr :: forall refs a. SingI refs => ExprT a -> ExprT (Refine refs a)
+refineExpr = case sing @refs of
+  SNil -> id
+  SCons (STuple2 (n :: Sing n) (t :: Sing t)) (refs' :: Sing refs') ->
+    withSingI n $ withSingI t $ withSingI refs' $
+      refineExpr @refs' . refOne @n @t
 
 data HRefable (d :: DType) where
   HRef ::

@@ -118,6 +118,7 @@ common shared
     TypeCheck
     TypeCheckerCore
     Util
+    Cast
 
 executable dice-bot
   import:         shared

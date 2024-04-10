@@ -8,7 +8,6 @@ import Data.Singletons.TH
 import Prelude.Singletons
 
 -- TODO
--- if statments
 -- lambda functions
 -- add back rerolls
 

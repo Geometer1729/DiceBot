@@ -22,7 +22,7 @@ typeTopLevel e = case evalStateT (typeExpr e) 0 of
   Left err -> Left err
   Right (Res (t :: ExprT d)) -> case sing @d of
     SDInt -> Right t
-    bad -> Left $ "Top level dice expresions must be of type Int your expresion was of type " <> show (fromSing bad)
+    bad -> Left $ "Top level dice expresions must be of type Int your expresion was of type " <> pShow (fromSing bad)
 
 typeExpr :: Expr -> StateT Natural (Either Text) Res
 typeExpr (P.IntLit n) = lift $ Right $ Res @DInt (Hask $ let go = HRef (const go) (fromInteger n) in go)
@@ -53,8 +53,8 @@ typeExpr (P.App f x) = do
         Nothing -> case sUnify xt' (sing @xt) of
           SNothing ->
             lift $ Left $ "Couldn't match type "
-              <> show (demote @xt) <> " with "
-              <> show (fromSing xt')
+              <> pShow (demote @xt) <> " with "
+              <> pShow (fromSing xt')
           SJust (refs :: Sing refs) -> withSingI xt' $ withSingI refs $ let
             fe' :: ExprT (DFun (Refine refs xt') (Refine refs yt)) =
               case funMaps @refs @xt' @yt of
@@ -67,3 +67,11 @@ typeExpr (P.App f x) = do
     -- TODO This is actually wrong, it should suport unifications from vars to functions
     _ -> lift $ Left "Applied argument to non-function. too many arguments?"
 
+pShow :: DType -> Text
+pShow DInt = "Int"
+pShow DBool = "Bool"
+pShow (DList l) = "[" <> pShow l <> "]"
+pShow (DFun a b) = pShow a <> " -> " <> pShow b
+pShow (DVar n) = case ['a'..'z'] !!? (fromIntegral n :: Int) of
+  Just t -> one t
+  Nothing -> "v" <> show n

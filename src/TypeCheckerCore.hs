@@ -120,7 +120,6 @@ data Res where
 refOne :: forall n t a. (SingI t,SingI n) => ExprT a -> ExprT (Ref n t a)
 refOne = \case
     Dice a b -> Dice a b
-    -- Poly p -> p @n @t
     App f x -> App (refOne @n @t f) (refOne @n @t x)
     Hask (HRef f _ :: HRefable a) -> Hask $ f (Proxy @'(n,t))
 

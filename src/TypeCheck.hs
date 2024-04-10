@@ -43,14 +43,16 @@ typeExpr (P.Dice l r) = do
 typeExpr (P.Var name) =
   case M.lookup name prelude of
     Just (Res (res :: ExprT d)) -> do
+      -- Whenever a polymorphic term is introduced it needs to be refined
+      -- to not use any existing type vars and the state needs to be updated
       ScopeNat start <- get
-      let new = sScope (sing @d)
+      let new = sFreeVar (sing @d)
       put $ ScopeNat (start %+ new)
       let refs = sReScopeRefs start
           res' = case refs of
-            (_ :: Sing refs ) -> withSingI refs $ refineExpr @refs res
-      case sRefine refs (sing @d) of
-        (s :: Sing t') -> withSingI s $ pure $ Res @t' res'
+            (_ :: Sing refs) -> withSingI refs $ refineExpr @refs res
+      withSingI (sRefine refs (sing @d)) $
+        pure $ Res res'
 
     Nothing -> lift $ Left $ "Not in scope " <> name
 typeExpr (P.Lambda _ _) = lift $ Left "Lambda functions are not implemented yet"

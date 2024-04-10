@@ -62,12 +62,12 @@ $( singletons
         rs <- unify (refine ls lr) (refine ls rr)
         pure $ ls ++ rs
 
-      scope :: DType -> Natural
-      scope DInt = 0
-      scope DBool = 0
-      scope (DVar n) = n + 1
-      scope (DList l) = scope l
-      scope (DFun a b) = max (scope a) (scope b)
+      freeVar :: DType -> Natural
+      freeVar DInt = 0
+      freeVar DBool = 0
+      freeVar (DVar n) = n + 1
+      freeVar (DList l) = freeVar l
+      freeVar (DFun a b) = max (freeVar a) (freeVar b)
 
       reScopeRefs :: Natural -> [(Natural, DType)]
       reScopeRefs n = map (\i -> (i, DVar (i + n))) (if n == 0 then [] else [0 .. n - 1])

@@ -1,6 +1,6 @@
 module RollM (rollDice, RollM (..)) where
 
-import TypeCheckerCore (DType (DVar), ExprT (..), HRefable (..), HsOf)
+import TypeCheckerCore (ExprT (..), HRefable (..), HsOf)
 
 class (Monad m) => RollM m where
   range :: Int -> Int -> m Int

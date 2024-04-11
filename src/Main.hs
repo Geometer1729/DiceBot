@@ -13,7 +13,10 @@ import TypeCheck (parseAndType)
 
 main :: IO ()
 main = do
-  token <- T.strip . decodeUtf8 <$> readFileBS "./token.auth"
+  token <- getArgs >>= \case
+    [] -> T.strip . decodeUtf8 <$> readFileBS "./token.auth"
+    [token] -> pure $ T.strip $ fromString token
+    _ -> die "Expected 0 or 1 arguments"
   rt <- newRefTable
   print
     =<< runDiscord

@@ -17,3 +17,13 @@ fmt:
 # Run ghcid -- auto-recompile and run `main` function
 run:
     ghcid -c "cabal repl exe:dice-bot" --warnings -T :main
+
+bundle:
+    nix bundle --bundler github:NixOS/bundlers .#packages.x86_64-linux.default
+
+deploy: bundle
+    echo put dice-bot | sftp tub
+    echo ./redeploy-dice | ssh tub
+
+stop:
+  echo ./stop-dice | ssh tub

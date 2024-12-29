@@ -17,7 +17,7 @@ tokens = makeTokenParser haskellDef
 data Expr
   = IntLit Integer
   | Var Text
-  | Dice Expr Expr
+  | Dice Expr Expr (Maybe Expr)
   | Paren Expr
   | App Expr Expr
   | Infix Text Expr Expr
@@ -81,8 +81,9 @@ simple :: Parser
 simple =
   choice
     [ parens expr
-    , Parsec.try $ Dice (IntLit 1) <$> (Parsec.char 'd' *> intOrParen)
-    , Parsec.try $ Dice <$> intOrParen <*> (Parsec.char 'd' *> intOrParen)
+    , Parsec.try $ Dice (IntLit 1) <$> (Parsec.char 'd' *> intOrParen) <*> pure Nothing
+    , Parsec.try $ Dice <$> intOrParen <*> (Parsec.char 'd' *> intOrParen)  <*> pure Nothing
+    , Parsec.try $ Dice <$> intOrParen <*> (Parsec.char 'd' *> intOrParen) <*> (Parsec.char 'k' *> (Just <$> intOrParen))
     , intLit
     , Var . toText <$> identifier
     ]

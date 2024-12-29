@@ -33,13 +33,22 @@ typeExpr (P.IntLit n) = pure $ cast $ fromInteger @Int n
 typeExpr (P.Paren e) = typeExpr e
 typeExpr (P.Infix name e1 e2) = typeExpr $ P.App (P.App (P.Var name) e1) e2
 typeExpr (P.IfTE e1 e2 e3) = typeExpr $ P.App (P.App (P.App (P.Var "ifte") e1) e2) e3
-typeExpr (P.Dice l r) = do
+typeExpr (P.Dice l r Nothing) = do
   Res (lt :: ExprT lt) <- typeExpr l
   Res (rt :: ExprT rt) <- typeExpr r
   case (sing @lt, sing @rt) of
-    (SDInt, SDInt) -> pure $ Res $ Dice lt rt
+    (SDInt, SDInt) -> pure $ Res $ Dice lt rt Nothing
     (SDInt, _) -> lift $ Left "number of faces must have type Int"
     (_, _) -> lift $ Left "number of dice must have type Int"
+typeExpr (P.Dice l r (Just k)) = do
+  Res (lt :: ExprT lt) <- typeExpr l
+  Res (rt :: ExprT rt) <- typeExpr r
+  Res (kt :: ExprT kt) <- typeExpr k
+  case (sing @lt, sing @rt, sing @kt) of
+    (SDInt, SDInt, SDInt) -> pure $ Res $ Dice lt rt (Just kt)
+    -- TODO slightly bad errors
+    (SDInt, _,_) -> lift $ Left "number of faces must have type Int"
+    (_, _,_) -> lift $ Left "number of dice must have type Int"
 typeExpr (P.Var name) =
   case M.lookup name prelude of
     Just (Res (res :: ExprT d)) -> do

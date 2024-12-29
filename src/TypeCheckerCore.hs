@@ -93,7 +93,7 @@ type family HsOf (d :: DType) where
   HsOf (DFun a b) = HsOf a -> HsOf b
 
 data ExprT (d :: DType) where
-  Dice :: ExprT DInt -> ExprT DInt -> ExprT DInt
+  Dice :: ExprT DInt -> ExprT DInt -> Maybe (ExprT DInt) -> ExprT DInt
   App :: ExprT (DFun a b) -> ExprT a -> ExprT b
   Hask :: HRefable d -> ExprT d
 
@@ -107,7 +107,7 @@ data Res where
 
 refOne :: forall n t a. (SingI t, SingI n) => ExprT a -> ExprT (Ref n t a)
 refOne = \case
-  Dice a b -> Dice a b
+  Dice a b k -> Dice a b k
   App f x -> App (refOne @n @t f) (refOne @n @t x)
   Hask (HRef f _ :: HRefable a) -> Hask $ f (Proxy @'(n, t))
 

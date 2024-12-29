@@ -19,7 +19,18 @@ rollDice :: forall r d t. (RollM r, HsOf d ~ t) => ExprT d -> r t
 rollDice = \case
   Hask (HRef _ l) -> pure l
   App f x -> rollDice f <*> rollDice x
-  Dice a b -> do
+  Dice a b (Just k) -> do
+    a' <- rollDice a
+    b' <- rollDice b
+    k' <- rollDice k
+    unless (b' <= k') $ throw $
+      "can't keep " <> show k'
+      <> " of " <> show b'
+    log $ case a' of
+      1 -> "d" <> show b' <> "= "
+      _ -> show a' <> "d" <> show b' <> "= "
+    a' `times` d b'
+  Dice a b Nothing -> do
     a' <- rollDice a
     b' <- rollDice b
     log $ case a' of

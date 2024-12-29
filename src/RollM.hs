@@ -9,8 +9,7 @@ class (Monad m) => RollM m where
   times :: Int -> m Int -> m Int
   times n = times' n id
 
-  times' :: Int -> (Int -> Int) -> m Int -> m Int
-  times' n f m = times n (f <$> m)
+  times' :: Int -> ([Int] -> [Int]) -> m Int -> m Int
 
 d :: (RollM r) => Int -> r Int
 d = range 1
@@ -23,13 +22,13 @@ rollDice = \case
     a' <- rollDice a
     b' <- rollDice b
     k' <- rollDice k
-    unless (b' <= k') $ throw $
+    unless (k' <= a') $ throw $
       "can't keep " <> show k'
-      <> " of " <> show b'
+      <> " of " <> show a'
     log $ case a' of
-      1 -> "d" <> show b' <> "= "
+      1 -> "d" <> show b' <> "k" <> show k' <>"= "
       _ -> show a' <> "d" <> show b' <> "= "
-    a' `times` d b'
+    times' a' (take k' . sortOn Down) (d b')
   Dice a b Nothing -> do
     a' <- rollDice a
     b' <- rollDice b

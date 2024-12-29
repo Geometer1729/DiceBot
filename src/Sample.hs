@@ -32,8 +32,8 @@ instance RollM Sample where
     | b < a = throw "dice with 0 or fewer sides encountered"
     | otherwise = state $ randomR (a, b)
   times' n f r = do
-    rolls <- replicateM (abs n) r
-    let res = (signum n *) . sum $ f <$> rolls
+    rolls <- f <$> replicateM (abs n) r
+    let res = (signum n *) . sum $ rolls
     log $ case rolls of
       [x] -> show x <> "\n"
       xs -> show xs <> "=" <> show res <> "\n"

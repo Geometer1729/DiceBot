@@ -29,6 +29,9 @@ instance RollM DistM where
     Nothing -> throw "encountered invalid dice"
     Just r -> DistM $ lift r
   times n (DistM (MaybeT r)) = DistM $ MaybeT $ Dist.times' (Just 0) (liftM2 (+)) n r
+  -- TODO stats wrong for rerolls
+  times' n _f (DistM (MaybeT r)) =
+    DistM $ MaybeT $ Dist.times' (Just 0) (liftM2 (+)) n r
   log _ = pass
   throw _ = DistM $ hoistMaybe Nothing
 

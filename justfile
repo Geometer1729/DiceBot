@@ -18,12 +18,11 @@ fmt:
 run:
     ghcid -c "cabal repl exe:dice-bot" --warnings -T :main
 
-bundle:
-    nix bundle --bundler github:NixOS/bundlers .#packages.x86_64-linux.default
+there:
+    echo "sudo systemctl restart dice-bot.service" | sftp tub
 
-deploy: bundle
-    echo put dice-bot | sftp tub
-    echo ./redeploy-dice | ssh tub
+here: stop
+  nix run
 
 stop:
-  echo ./stop-dice | ssh tub
+  echo "sudo systemctl stop dice-bot.service" | ssh tub

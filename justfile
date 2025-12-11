@@ -19,7 +19,7 @@ run:
     ghcid -c "cabal repl exe:dice-bot" --warnings -T :main
 
 there:
-    echo "sudo systemctl restart dice-bot.service" | sftp tub
+    echo "sudo systemctl restart dice-bot.service" | ssh tub
 
 here: stop
   nix run
